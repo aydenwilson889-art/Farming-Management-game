@@ -1,4 +1,4 @@
-import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Tomato, Pig, Egg, Milk } from 'lucide-react';
+import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Tomato, PiggyBank, Egg, Milk } from 'lucide-react';
 
 // --- Types ---
 
@@ -59,7 +59,7 @@ export interface GameState {
 export const ANIMAL_PRODUCTS: AnimalProduct[] = [
   { id: 'egg', name: 'Egg', icon: Egg, basePrice: 4 },
   { id: 'milk', name: 'Milk', icon: Milk, basePrice: 8 },
-  { id: 'pork', name: 'Pork', icon: Pig, basePrice: 12 },
+  { id: 'pork', name: 'Pork', icon: PiggyBank, basePrice: 12 },
 ];
 
 export const ANIMALS: Animal[] = [
