@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS, Animal, getAnimalProductById } from '@/lib/game-data';
+import { INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS, Animal, getAnimalProductById, SEASONS, DAYS_PER_SEASON, TAX_RATE, TAX_DAY_INTERVAL, GREENHOUSE_COST } from '@/lib/game-data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint } from 'lucide-react';
+import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud } from 'lucide-react';
 import FarmMap from './FarmMap';
 import FarmShop from './FarmShop';
 import AnimalPen from './AnimalPen';
+import Greenhouse from './Greenhouse';
 import { showSuccess, showError } from '@/utils/toast';
 
 const FarmManager: React.FC = () => {
@@ -15,22 +16,65 @@ const FarmManager: React.FC = () => {
   const [selectedCropId, setSelectedCropId] = useState<string | null>(null);
   const [availableLand, setAvailableLand] = useState(INITIAL_LAND_PLOTS);
 
+  const getSeasonIcon = (season: typeof SEASONS[number]) => {
+    switch (season) {
+      case 'Spring': return Leaf;
+      case 'Summer': return Sun;
+      case 'Autumn': return Cloud;
+      case 'Winter': return Snowflake;
+      default: return Clock;
+    }
+  };
+
   // --- Game Loop (Time Progression) ---
   useEffect(() => {
-    // Advance time every 5 seconds (representing one game day)
+    // Advance time every 30 seconds (representing one game day)
     const interval = setInterval(() => {
       setGameState(prev => {
         const newDay = prev.day + 1;
         
-        // 1. Advance Crop Growth Stages
+        // 1. Season Progression
+        const dayInSeason = (newDay - 1) % DAYS_PER_SEASON;
+        const currentSeasonIndex = Math.floor((newDay - 1) / DAYS_PER_SEASON) % SEASONS.length;
+        const newSeason = SEASONS[currentSeasonIndex];
+        
+        if (newSeason !== prev.currentSeason) {
+            showSuccess(`It is now ${newSeason}!`);
+        }
+
+        // 2. Tax Collection (End of Season)
+        let newCash = prev.cash;
+        if (dayInSeason === DAYS_PER_SEASON - 1) { // Check if it's the last day of the season
+            const taxAmount = Math.floor(prev.cash * TAX_RATE);
+            newCash = prev.cash - taxAmount;
+            showError(`Taxes collected! Paid $${taxAmount.toLocaleString()} (10% of cash).`);
+        }
+        
+        // 3. Advance Crop Growth Stages
+        const isWinter = newSeason === 'Winter';
+        const canGrowInWinter = prev.hasGreenhouse;
+
         const newOwnedLand = prev.ownedLand.map(plot => ({
           ...plot,
           tiles: plot.tiles.map(tile => {
             if (tile.cropId && !tile.isReadyToHarvest) {
               const crop = getCropById(tile.cropId);
               if (crop) {
+                
+                // Check for seasonal growth restriction
+                if (isWinter && !canGrowInWinter) {
+                    // Crop growth stops in winter without a greenhouse
+                    return tile;
+                }
+
                 // Calculate growth increment based on 100% / growthTime
-                const growthIncrement = (1 / crop.growthTime) * 100;
+                let growthIncrement = (1 / crop.growthTime) * 100;
+                
+                // Apply optimal season bonus (e.g., 20% faster growth)
+                if (crop.optimalSeason === newSeason) {
+                    growthIncrement *= 1.2;
+                }
+                
                 let newGrowthStage = tile.growthStage + growthIncrement;
                 
                 if (newGrowthStage >= 100) {
@@ -44,7 +88,7 @@ const FarmManager: React.FC = () => {
           })
         }));
         
-        // 2. Advance Animal Production
+        // 4. Advance Animal Production
         let newInventory = { ...prev.inventory };
         const newOwnedAnimals = prev.ownedAnimals.map(animal => {
           const daysLeft = animal.daysUntilProduction - 1;
@@ -64,20 +108,17 @@ const FarmManager: React.FC = () => {
           return { ...animal, daysUntilProduction: daysLeft };
         });
 
-        // 3. Check for events (simplified for now)
-        if (newDay % 10 === 0) {
-            showSuccess(`Day ${newDay}: A successful harvest season is approaching!`);
-        }
-
         return {
           ...prev,
           day: newDay,
+          currentSeason: newSeason,
+          cash: newCash,
           ownedLand: newOwnedLand,
           ownedAnimals: newOwnedAnimals,
           inventory: newInventory,
         };
       });
-    }, 5000); // 5 seconds per day
+    }, 30000); // 30 seconds per day
 
     return () => clearInterval(interval);
   }, []);
@@ -113,7 +154,7 @@ const FarmManager: React.FC = () => {
           );
         } else {
           // If new animal type, add it
-          newOwnedAnimals = [...prev.ownedAnimals, { ...animal, quantity: 1 }];
+          newOwnedAnimals = [...prev.ownedAnimals, { ...animal, quantity: 1, daysUntilProduction: animal.productionTime }];
         }
 
         return {
@@ -173,11 +214,18 @@ const FarmManager: React.FC = () => {
       if (tileIndex === -1) return prev;
       
       const tile = { ...plot.tiles[tileIndex] };
+      const isWinter = prev.currentSeason === 'Winter';
+      const canPlantInWinter = prev.hasGreenhouse;
 
       if (action === 'plant' && selectedCropId) {
         const crop = getCropById(selectedCropId);
         if (!crop) return prev;
         
+        if (isWinter && !canPlantInWinter) {
+            showError("Cannot plant during Winter without a Greenhouse!");
+            return prev;
+        }
+
         const seedCount = prev.inventory[selectedCropId] || 0;
         
         if (seedCount > 0) {
@@ -230,7 +278,7 @@ const FarmManager: React.FC = () => {
 
       return prev;
     });
-  }, [selectedCropId]);
+  }, [selectedCropId, gameState.currentSeason, gameState.hasGreenhouse]);
   
   const handleBuyLand = useCallback((plot: LandPlot) => {
     if (gameState.cash >= plot.basePrice) {
@@ -255,11 +303,26 @@ const FarmManager: React.FC = () => {
     }
   }, [gameState.cash]);
 
+  const handleBuyGreenhouse = useCallback(() => {
+    if (gameState.cash >= GREENHOUSE_COST) {
+        setGameState(prev => ({
+            ...prev,
+            cash: prev.cash - GREENHOUSE_COST,
+            hasGreenhouse: true,
+        }));
+        showSuccess("Greenhouse purchased! You can now grow crops year-round.");
+    } else {
+        showError("Insufficient funds to purchase the Greenhouse.");
+    }
+  }, [gameState.cash]);
+
   // --- Story Introduction ---
   useEffect(() => {
     showSuccess("Welcome to the farm. Your Grandpa's legacy starts now. You have $100 to buy seeds.");
   }, []);
 
+
+  const SeasonIcon = getSeasonIcon(gameState.currentSeason);
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-8 p-4">
@@ -275,6 +338,10 @@ const FarmManager: React.FC = () => {
             <div className="flex items-center space-x-2">
               <DollarSign className="w-5 h-5" />
               <span className="text-xl font-semibold">Cash: ${gameState.cash.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <SeasonIcon className="w-5 h-5" />
+              <span className="text-xl font-semibold">Season: {gameState.currentSeason}</span>
             </div>
             <div className="flex items-center space-x-2">
               <Clock className="w-5 h-5" />
@@ -300,11 +367,20 @@ const FarmManager: React.FC = () => {
           <FarmMap 
             ownedLand={gameState.ownedLand} 
             selectedCropId={selectedCropId}
+            currentSeason={gameState.currentSeason}
+            hasGreenhouse={gameState.hasGreenhouse}
             onTileAction={handleTileAction}
           />
           
           <h2 className="text-2xl font-bold border-b pb-2">Livestock</h2>
           <AnimalPen ownedAnimals={gameState.ownedAnimals} />
+
+          <h2 className="text-2xl font-bold border-b pb-2">Infrastructure</h2>
+          <Greenhouse 
+            hasGreenhouse={gameState.hasGreenhouse}
+            cash={gameState.cash}
+            onBuyGreenhouse={handleBuyGreenhouse}
+          />
 
           <Card className="shadow-lg">
             <CardHeader>

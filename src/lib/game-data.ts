@@ -1,6 +1,8 @@
-import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk } from 'lucide-react';
+import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Sheep, Feather, Fish, Rabbit, Bird } from 'lucide-react';
 
 // --- Types ---
+
+export type Season = 'Spring' | 'Summer' | 'Autumn' | 'Winter';
 
 export interface Crop {
   id: string;
@@ -10,6 +12,7 @@ export interface Crop {
   growthTime: number; // Time in game days
   baseYield: number; // Base units harvested per plot
   basePrice: number; // Base selling price per unit
+  optimalSeason: Season; // New property
 }
 
 export interface LandPlot {
@@ -49,6 +52,8 @@ export interface Animal {
 export interface GameState {
   cash: number;
   day: number;
+  currentSeason: Season; // New property
+  hasGreenhouse: boolean; // New property
   inventory: Record<string, number>; // CropId/AnimalProductId -> Quantity
   ownedLand: LandPlot[];
   ownedAnimals: Animal[];
@@ -56,10 +61,20 @@ export interface GameState {
 
 // --- Constants ---
 
+export const SEASONS: Season[] = ['Spring', 'Summer', 'Autumn', 'Winter'];
+export const DAYS_PER_SEASON = 7;
+export const TAX_RATE = 0.10; // 10% tax
+export const TAX_DAY_INTERVAL = DAYS_PER_SEASON; // Tax collected at the end of every season (Day 7, 14, 21, etc.)
+export const GREENHOUSE_COST = 5000;
+
 export const ANIMAL_PRODUCTS: AnimalProduct[] = [
   { id: 'egg', name: 'Egg', icon: Egg, basePrice: 4 },
   { id: 'milk', name: 'Milk', icon: Milk, basePrice: 8 },
   { id: 'pork', name: 'Pork', icon: PiggyBank, basePrice: 12 },
+  { id: 'wool', name: 'Wool', icon: Feather, basePrice: 15 },
+  { id: 'fish', name: 'Fish', icon: Fish, basePrice: 10 },
+  { id: 'rabbit_fur', name: 'Rabbit Fur', icon: Rabbit, basePrice: 7 },
+  { id: 'honey', name: 'Honey', icon: Bird, basePrice: 6 },
 ];
 
 export const ANIMALS: Animal[] = [
@@ -83,6 +98,56 @@ export const ANIMALS: Animal[] = [
     quantity: 0,
     daysUntilProduction: 3,
   },
+  {
+    id: 'pig',
+    name: 'Pig',
+    icon: PiggyBank,
+    purchaseCost: 150,
+    productionTime: 4,
+    product: ANIMAL_PRODUCTS.find(p => p.id === 'pork')!,
+    quantity: 0,
+    daysUntilProduction: 4,
+  },
+  {
+    id: 'sheep',
+    name: 'Sheep',
+    icon: Sheep,
+    purchaseCost: 100,
+    productionTime: 5,
+    product: ANIMAL_PRODUCTS.find(p => p.id === 'wool')!,
+    quantity: 0,
+    daysUntilProduction: 5,
+  },
+  {
+    id: 'fish_farm',
+    name: 'Fish Farm',
+    icon: Fish,
+    purchaseCost: 500,
+    productionTime: 7,
+    product: ANIMAL_PRODUCTS.find(p => p.id === 'fish')!,
+    quantity: 0,
+    daysUntilProduction: 7,
+  },
+  {
+    id: 'rabbit',
+    name: 'Rabbit',
+    icon: Rabbit,
+    purchaseCost: 75,
+    productionTime: 3,
+    product: ANIMAL_PRODUCTS.find(p => p.id === 'rabbit_fur')!,
+    quantity: 0,
+    daysUntilProduction: 3,
+  },
+  {
+    id: 'bee_hive',
+    name: 'Bee Hive',
+    icon: Bird, // Using Bird as a placeholder for Bee/Honey
+    purchaseCost: 120,
+    productionTime: 6,
+    product: ANIMAL_PRODUCTS.find(p => p.id === 'honey')!,
+    quantity: 0,
+    daysUntilProduction: 6,
+  },
 ];
 
 
@@ -95,6 +160,7 @@ export const CROPS: Crop[] = [
     growthTime: 5, // 5 days
     baseYield: 10,
     basePrice: 2,
+    optimalSeason: 'Spring',
   },
   {
     id: 'corn',
@@ -104,6 +170,7 @@ export const CROPS: Crop[] = [
     growthTime: 8, // 8 days
     baseYield: 15,
     basePrice: 3,
+    optimalSeason: 'Summer',
   },
   {
     id: 'carrot',
@@ -113,6 +180,7 @@ export const CROPS: Crop[] = [
     growthTime: 6, // 6 days
     baseYield: 12,
     basePrice: 4,
+    optimalSeason: 'Autumn',
   },
   {
     id: 'tomato',
@@ -122,6 +190,7 @@ export const CROPS: Crop[] = [
     growthTime: 10, // 10 days
     baseYield: 20,
     basePrice: 5,
+    optimalSeason: 'Summer',
   },
 ];
 
@@ -183,6 +252,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
 export const INITIAL_GAME_STATE: GameState = {
   cash: 100, // Starting profit
   day: 1,
+  currentSeason: 'Spring',
+  hasGreenhouse: false,
   inventory: {},
   ownedLand: INITIAL_LAND_PLOTS.filter(p => p.isOwned),
   ownedAnimals: [],
