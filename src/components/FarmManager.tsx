@@ -16,6 +16,9 @@ const FarmManager: React.FC = () => {
   const [selectedCropId, setSelectedCropId] = useState<string | null>(null);
   const [availableLand, setAvailableLand] = useState(INITIAL_LAND_PLOTS);
 
+  const BULK_QUANTITY = 10;
+  const BULK_DISCOUNT = 0.05; // 5% discount
+
   const getSeasonIcon = (season: typeof SEASONS[number]) => {
     switch (season) {
       case 'Spring': return Leaf;
@@ -132,24 +135,32 @@ const FarmManager: React.FC = () => {
 
   // --- Handlers ---
 
-  const handleBuySeed = useCallback((crop: Crop) => {
-    if (gameState.cash >= crop.seedCost) {
+  const handleBuySeed = useCallback((crop: Crop, quantity: number = 1) => {
+    const cost = quantity === 1 
+      ? crop.seedCost 
+      : Math.floor(crop.seedCost * quantity * (1 - BULK_DISCOUNT));
+
+    if (gameState.cash >= cost) {
       setGameState(prev => ({
         ...prev,
-        cash: prev.cash - crop.seedCost,
+        cash: prev.cash - cost,
         inventory: {
           ...prev.inventory,
-          [crop.id]: (prev.inventory[crop.id] || 0) + 1,
+          [crop.id]: (prev.inventory[crop.id] || 0) + quantity,
         }
       }));
-      showSuccess(`Purchased 1 unit of ${crop.name} seed.`);
+      showSuccess(`Purchased ${quantity} unit(s) of ${crop.name} seed for $${cost}.`);
     } else {
       showError("Insufficient funds to buy seeds.");
     }
   }, [gameState.cash]);
 
-  const handleBuyAnimal = useCallback((animal: Animal) => {
-    if (gameState.cash >= animal.purchaseCost) {
+  const handleBuyAnimal = useCallback((animal: Animal, quantity: number = 1) => {
+    const cost = quantity === 1 
+      ? animal.purchaseCost 
+      : Math.floor(animal.purchaseCost * quantity * (1 - BULK_DISCOUNT));
+
+    if (gameState.cash >= cost) {
       setGameState(prev => {
         const existingAnimalIndex = prev.ownedAnimals.findIndex(a => a.id === animal.id);
         let newOwnedAnimals;
@@ -157,20 +168,41 @@ const FarmManager: React.FC = () => {
         if (existingAnimalIndex !== -1) {
           // If animal type already exists, increase quantity
           newOwnedAnimals = prev.ownedAnimals.map((a, index) => 
-            index === existingAnimalIndex ? { ...a, quantity: a.quantity + 1 } : a
+            index === existingAnimalIndex ? { ...a, quantity: a.quantity + quantity } : a
           );
         } else {
           // If new animal type, add it
-          newOwnedAnimals = [...prev.ownedAnimals, { ...animal, quantity: 1, daysUntilProduction: animal.productionTime }];
+          // Note: When buying bulk, we initialize all new animals with their full production time.
+          const newAnimals = Array(quantity).fill(0).map(() => ({ 
+            ...animal, 
+            quantity: 1, 
+            daysUntilProduction: animal.productionTime 
+          }));
+          
+          // Since we are tracking quantity per type, we just add the quantity to the existing type or create a new entry.
+          newOwnedAnimals = [...prev.ownedAnimals, { ...animal, quantity: quantity, daysUntilProduction: animal.productionTime }];
         }
+        
+        // Re-evaluating the logic for bulk animal purchase:
+        // Since the AnimalPen tracks production time per *type* of animal, we just increase the quantity of that type.
+        // If we buy 10 chickens, they all share the same production timer.
+        
+        if (existingAnimalIndex !== -1) {
+            newOwnedAnimals = prev.ownedAnimals.map((a, index) => 
+                index === existingAnimalIndex ? { ...a, quantity: a.quantity + quantity } : a
+            );
+        } else {
+            newOwnedAnimals = [...prev.ownedAnimals, { ...animal, quantity: quantity, daysUntilProduction: animal.productionTime }];
+        }
+
 
         return {
           ...prev,
-          cash: prev.cash - animal.purchaseCost,
+          cash: prev.cash - cost,
           ownedAnimals: newOwnedAnimals,
         };
       });
-      showSuccess(`Purchased 1 ${animal.name} for $${animal.purchaseCost}.`);
+      showSuccess(`Purchased ${quantity} ${animal.name}(s) for $${cost}.`);
     } else {
       showError("Insufficient funds to buy this animal.");
     }
@@ -195,6 +227,7 @@ const FarmManager: React.FC = () => {
         return prev;
       }
 
+      // Remove the entire entry since we are selling ALL units of this type
       const newOwnedAnimals = prev.ownedAnimals.filter(a => a.id !== animalId);
       
       return {
