@@ -66,7 +66,7 @@ export const DAYS_PER_SEASON = 7;
 export const TAX_RATE = 0.10; // 10% tax
 export const TAX_DAY_INTERVAL = DAYS_PER_SEASON; // Tax collected at the end of every season (Day 7, 14, 21, etc.)
 export const GREENHOUSE_COST = 5000;
-export const GREENHOUSE_SIZE = 12; // 6x2 grid
+export const GREENHOUSE_SIZE = 6; // 3x2 grid
 
 export const ANIMAL_PRODUCTS: AnimalProduct[] = [
   { id: 'egg', name: 'Egg', icon: Egg, basePrice: 4 },
@@ -253,7 +253,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
 export const INITIAL_GREENHOUSE_PLOT: LandPlot = {
     id: 'greenhouse',
     name: 'Greenhouse',
-    size: GREENHOUSE_SIZE, // 6x2 grid
+    size: GREENHOUSE_SIZE, // 3x2 grid
     basePrice: GREENHOUSE_COST,
     isOwned: false,
     tiles: Array.from({ length: GREENHOUSE_SIZE }, (_, i) => ({

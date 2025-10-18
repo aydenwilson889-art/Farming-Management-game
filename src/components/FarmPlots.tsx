@@ -130,7 +130,7 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSea
           
           {plots.map((plot) => {
             const isGreenhouse = plot.id === 'greenhouse';
-            const gridColumns = isGreenhouse ? 6 : Math.sqrt(plot.size); // 6x2 for greenhouse, NxN for others
+            const gridColumns = isGreenhouse ? 3 : Math.sqrt(plot.size); // 3x2 for greenhouse, NxN for others
 
             return (
               <TabsContent key={plot.id} value={plot.id} className="mt-0 pt-4">
