@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { 
   INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS, Animal, ANIMALS, getAnimalProductById, 
-  SEASONS, DAYS_PER_SEASON, TAX_RATE, INITIAL_GREENHOUSE_PLOT, GREENHOUSE_COST 
+  SEASONS, DAYS_PER_SEASON, TAX_RATE, INITIAL_GREENHOUSE_PLOT, GREENHOUSE_COST, Season 
 } from '@/lib/game-data';
 import { showSuccess, showError } from '@/utils/toast';
 
@@ -67,6 +67,14 @@ export function useFarmGame() {
         day: newDay,
         currentSeason: newSeason,
     }));
+  }, []);
+  
+  const adjustSeason = useCallback((newSeason: Season) => {
+    setGameState(prev => ({
+        ...prev,
+        currentSeason: newSeason,
+    }));
+    showSuccess(`Season manually set to ${newSeason}.`);
   }, []);
 
 
@@ -422,5 +430,6 @@ export function useFarmGame() {
     handleBuyGreenhouse,
     adjustCash,
     adjustDay,
+    adjustSeason,
   };
 }

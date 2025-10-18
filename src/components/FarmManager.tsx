@@ -28,6 +28,7 @@ const FarmManager: React.FC = () => {
     handleBuyGreenhouse,
     adjustCash,
     adjustDay,
+    adjustSeason, // <-- New handler
   } = useFarmGame();
 
   const [selectedCropId, setSelectedCropId] = useState<string | null>(null);
@@ -164,8 +165,10 @@ const FarmManager: React.FC = () => {
           <AdminPanel
             currentCash={gameState.cash}
             currentDay={gameState.day}
+            currentSeason={gameState.currentSeason}
             onAdjustCash={adjustCash}
             onAdjustDay={adjustDay}
+            onAdjustSeason={adjustSeason}
           />
         </CollapsibleContent>
       </Collapsible>

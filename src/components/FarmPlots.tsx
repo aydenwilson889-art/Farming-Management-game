@@ -28,6 +28,8 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSea
       </Card>
     );
   }
+  
+  const isGreenhouseBoosted = currentSeason === 'Spring' || currentSeason === 'Summer';
 
   const renderTile = (plotId: string, tile: PlotTile, isGreenhouse: boolean) => {
     const crop = tile.cropId ? getCropById(tile.cropId) : null;
@@ -130,10 +132,13 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSea
           <TabsList className="w-full justify-start h-auto flex-wrap p-1 mb-4">
             {plots.map((plot) => {
               const isGreenhouse = plot.id === 'greenhouse';
+              const showZap = isGreenhouse && isGreenhouseBoosted;
+              
               return (
                 <TabsTrigger key={plot.id} value={plot.id} className="flex items-center space-x-1 px-4 py-2">
-                  {isGreenhouse ? <Factory className="w-4 h-4 text-green-600" /> : <LandPlotIcon className="w-4 h-4 text-amber-600" />}
+                  {isGreenhouse ? <Factory className="w-4 h-4 mr-1 text-green-600" /> : <LandPlotIcon className="w-4 h-4 mr-1 text-amber-600" />}
                   <span>{plot.name} ({plot.size} tiles)</span>
+                  {showZap && <Zap className="w-3 h-3 text-yellow-500 ml-1" title="Greenhouse Speed Boost Active" />}
                 </TabsTrigger>
               );
             })}

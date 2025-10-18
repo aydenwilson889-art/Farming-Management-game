@@ -5,23 +5,28 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Settings, Lock, Unlock, DollarSign, Clock } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Settings, Lock, DollarSign, Clock, Sun, Leaf, Snowflake, Cloud } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
+import { SEASONS, Season } from '@/lib/game-data';
 
 const ADMIN_PASSWORD = "2028068";
 
 interface AdminPanelProps {
   currentCash: number;
   currentDay: number;
+  currentSeason: Season;
   onAdjustCash: (amount: number) => void;
   onAdjustDay: (day: number) => void;
+  onAdjustSeason: (season: Season) => void;
 }
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ currentCash, currentDay, onAdjustCash, onAdjustDay }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ currentCash, currentDay, currentSeason, onAdjustCash, onAdjustDay, onAdjustSeason }) => {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [password, setPassword] = useState('');
   const [newCash, setNewCash] = useState(currentCash.toString());
   const [newDay, setNewDay] = useState(currentDay.toString());
+  const [selectedSeason, setSelectedSeason] = useState<Season>(currentSeason);
 
   const handleUnlock = () => {
     if (password === ADMIN_PASSWORD) {
@@ -52,6 +57,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentCash, currentDay, onAdju
       showError("Invalid day number.");
     }
   };
+  
+  const handleApplySeason = (season: Season) => {
+    setSelectedSeason(season);
+    onAdjustSeason(season);
+  };
 
   // Sync local state when props change (e.g., after applying changes or game progression)
   React.useEffect(() => {
@@ -61,6 +71,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentCash, currentDay, onAdju
   React.useEffect(() => {
     setNewDay(currentDay.toString());
   }, [currentDay]);
+  
+  React.useEffect(() => {
+    setSelectedSeason(currentSeason);
+  }, [currentSeason]);
+
+  const getSeasonIcon = (season: Season) => {
+    switch (season) {
+      case 'Spring': return Leaf;
+      case 'Summer': return Sun;
+      case 'Autumn': return Cloud;
+      case 'Winter': return Snowflake;
+      default: return Clock;
+    }
+  };
 
 
   return (
@@ -123,6 +147,31 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentCash, currentDay, onAdju
                 />
                 <Button onClick={handleApplyDay}>Set Day</Button>
               </div>
+            </div>
+            
+            {/* Season Adjustment */}
+            <div className="space-y-2 p-3 border rounded-md">
+              <Label htmlFor="season-select" className="flex items-center font-semibold">
+                <Sun className="w-4 h-4 mr-1" /> Adjust Season
+              </Label>
+              <Select value={selectedSeason} onValueChange={(value: Season) => handleApplySeason(value)}>
+                <SelectTrigger id="season-select">
+                  <SelectValue placeholder="Select Season" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SEASONS.map(season => {
+                    const Icon = getSeasonIcon(season);
+                    return (
+                      <SelectItem key={season} value={season}>
+                        <div className="flex items-center">
+                          <Icon className="w-4 h-4 mr-2" />
+                          {season}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         )}
