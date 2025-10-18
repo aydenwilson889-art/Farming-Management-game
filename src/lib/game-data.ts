@@ -1,4 +1,4 @@
-import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Tomato, PiggyBank, Egg, Milk } from 'lucide-react';
+import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk } from 'lucide-react';
 
 // --- Types ---
 
@@ -117,7 +117,7 @@ export const CROPS: Crop[] = [
   {
     id: 'tomato',
     name: 'Tomato',
-    icon: Tomato,
+    icon: Apple, // Using Apple as a placeholder for Tomato
     seedCost: 10,
     growthTime: 10, // 10 days
     baseYield: 20,
