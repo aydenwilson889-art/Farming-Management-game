@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, getAnimalProductById } from '@/lib/game-data';
-import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint } from 'lucide-react';
+import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -81,9 +81,16 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
                     <crop.icon className="w-6 h-6 text-green-700" />
                     <div>
                       <h4 className="font-semibold">{crop.name} Seeds</h4>
-                      <p className="text-xs text-muted-foreground">
-                        Cost: ${crop.seedCost} | Yield: {crop.baseYield} units.
-                      </p>
+                      <div className="flex items-center space-x-3 text-xs text-muted-foreground mt-1">
+                        <span className="flex items-center">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {crop.growthTime} Days
+                        </span>
+                        <span className="flex items-center">
+                          <Leaf className="w-3 h-3 mr-1" />
+                          Optimal: {crop.optimalSeason}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -92,7 +99,7 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
                       onClick={() => onSelectCrop(isSelected ? null : crop.id)}
                       className="h-8 text-xs"
                     >
-                      {isSelected ? "Selected" : "Select"}
+                      {isSelected ? "Selected" : "Select for Planting"}
                     </Button>
                     <Button
                       onClick={() => onOpenPurchaseModal(crop)}
@@ -100,7 +107,7 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
                       className="h-8 flex items-center space-x-1 text-xs bg-green-600 hover:bg-green-700"
                     >
                       <DollarSign className="w-3 h-3" />
-                      <span>Buy Online</span>
+                      <span>Buy Online (${crop.seedCost})</span>
                     </Button>
                   </div>
                 </div>

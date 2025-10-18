@@ -12,7 +12,6 @@ import AnimalPen from './AnimalPen';
 import FarmConstruction from './FarmConstruction';
 import PurchaseModal from './PurchaseModal';
 import AdminPanel from './AdminPanel';
-import CropInfoCard from './CropInfoCard';
 import { useFarmGame, PurchaseDetails } from '@/hooks/use-farm-game';
 import { showSuccess } from '@/utils/toast';
 import { cn } from '@/lib/utils';
@@ -73,7 +72,6 @@ const FarmManager: React.FC = () => {
   }
 
   const SeasonIcon = getSeasonIcon(gameState.currentSeason);
-  const selectedCrop = selectedCropId ? getCropById(selectedCropId) : null;
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-8 p-4">
@@ -125,13 +123,9 @@ const FarmManager: React.FC = () => {
           <AnimalPen ownedAnimals={gameState.ownedAnimals} />
         </div>
         
-        {/* Column 2: Shop, Construction, and Crop Info */}
+        {/* Column 2: Shop and Construction */}
         <div className="lg:col-span-1 space-y-8">
-          <CropInfoCard 
-            crop={selectedCrop} 
-            currentSeason={gameState.currentSeason} 
-          />
-
+          
           <FarmShop 
             cash={gameState.cash}
             inventory={gameState.inventory}
@@ -153,7 +147,7 @@ const FarmManager: React.FC = () => {
         </div>
       </div>
       
-      {/* Collapsible Admin Panel */}
+      {/* Collapsible Admin Panel (Moved to the bottom of the main container) */}
       <Collapsible open={isAdminOpen} onOpenChange={setIsAdminOpen} className="w-full">
         <div className="flex items-center justify-between space-x-4 px-4 py-2 border rounded-md bg-destructive/10">
           <h4 className="text-lg font-semibold text-destructive">
