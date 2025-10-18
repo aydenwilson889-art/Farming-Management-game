@@ -106,15 +106,26 @@ export function useFarmGame() {
                         const crop = getCropById(tile.cropId);
                         if (crop) {
                             
-                            if (isWinter && !isGreenhouse) {
+                            let growthMultiplier = 1;
+                            
+                            if (isGreenhouse) {
+                                // Greenhouse logic: 1.5x speed in Spring/Summer, 1.0x in Autumn/Winter
+                                if (newSeason === 'Spring' || newSeason === 'Summer') {
+                                    growthMultiplier = 1.5;
+                                } else {
+                                    growthMultiplier = 1.0; // Normal speed in Autumn/Winter
+                                }
+                            } else if (isWinter) {
+                                // Regular plot freezes in Winter
                                 return tile;
                             }
 
-                            let growthIncrement = (1 / crop.growthTime) * 100;
-                            
+                            // Optimal season bonus applies on top of base/greenhouse multiplier
                             if (crop.optimalSeason === newSeason) {
-                                growthIncrement *= 1.2;
+                                growthMultiplier *= 1.2;
                             }
+                            
+                            let growthIncrement = (1 / crop.growthTime) * 100 * growthMultiplier;
                             
                             let newGrowthStage = tile.growthStage + growthIncrement;
                             
