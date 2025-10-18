@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS } from '@/lib/game-data';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor } from 'lucide-react';
 import FarmMap from './FarmMap';
