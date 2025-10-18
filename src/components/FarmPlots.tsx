@@ -3,9 +3,9 @@
 import React from 'react';
 import { LandPlot, PlotTile, Crop, getCropById, Season } from '@/lib/game-data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { Leaf, Check, X, Loader2, LandPlot as LandPlotIcon, Snowflake, Sun, Factory } from 'lucide-react';
+import { Leaf, Check, X, Loader2, LandPlot as LandPlotIcon, Snowflake, Factory } from 'lucide-react';
 
 interface FarmPlotsProps {
   plots: LandPlot[];
@@ -16,6 +16,19 @@ interface FarmPlotsProps {
 
 const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSeason, onTileAction }) => {
   
+  if (plots.length === 0) {
+    return (
+      <Card className="w-full shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-xl">Farm Plots</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-center text-muted-foreground py-4">No land plots owned yet. Purchase land in the Construction section!</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const renderTile = (plotId: string, tile: PlotTile, isGreenhouse: boolean) => {
     const crop = tile.cropId ? getCropById(tile.cropId) : null;
     const selectedCrop = selectedCropId ? getCropById(selectedCropId) : null;
@@ -97,34 +110,45 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSea
   };
 
   return (
-    <div className="space-y-6">
-      {plots.map((plot) => {
-        const isGreenhouse = plot.id === 'greenhouse';
-        const gridColumns = isGreenhouse ? 6 : Math.sqrt(plot.size); // 6x2 for greenhouse, NxN for others
+    <Card className="w-full shadow-lg">
+      <CardHeader>
+        <CardTitle className="text-2xl">Farm Plots</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue={plots[0].id}>
+          <TabsList className="w-full justify-start h-auto flex-wrap p-1 mb-4">
+            {plots.map((plot) => {
+              const isGreenhouse = plot.id === 'greenhouse';
+              return (
+                <TabsTrigger key={plot.id} value={plot.id} className="flex items-center space-x-1 px-4 py-2">
+                  {isGreenhouse ? <Factory className="w-4 h-4 text-green-600" /> : <LandPlotIcon className="w-4 h-4 text-amber-600" />}
+                  <span>{plot.name} ({plot.size} tiles)</span>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+          
+          {plots.map((plot) => {
+            const isGreenhouse = plot.id === 'greenhouse';
+            const gridColumns = isGreenhouse ? 6 : Math.sqrt(plot.size); // 6x2 for greenhouse, NxN for others
 
-        return (
-          <Card key={plot.id} className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-xl flex items-center">
-                {isGreenhouse ? <Factory className="w-5 h-5 mr-2 text-green-600" /> : <LandPlotIcon className="w-5 h-5 mr-2 text-amber-600" />}
-                {plot.name} ({plot.size} tiles)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div 
-                className="grid gap-1"
-                style={{
-                  gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
-                  maxWidth: `${gridColumns * 36}px` // 32px tile + 4px gap
-                }}
-              >
-                {plot.tiles.map(tile => renderTile(plot.id, tile, isGreenhouse))}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
-    </div>
+            return (
+              <TabsContent key={plot.id} value={plot.id} className="mt-0 pt-4">
+                <div 
+                  className="grid gap-1 mx-auto"
+                  style={{
+                    gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
+                    maxWidth: `${gridColumns * 36}px` // 32px tile + 4px gap
+                  }}
+                >
+                  {plot.tiles.map(tile => renderTile(plot.id, tile, isGreenhouse))}
+                </div>
+              </TabsContent>
+            );
+          })}
+        </Tabs>
+      </CardContent>
+    </Card>
   );
 };
 

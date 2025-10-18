@@ -385,7 +385,7 @@ const FarmManager: React.FC = () => {
             </div>
             <div className="flex items-center space-x-2">
               <LandPlotIcon className="w-5 h-5" />
-              <span className="text-xl font-semibold">Plots: {gameState.ownedLand.length}</span>
+              <span className="text-xl font-semibold">Plots: {gameState.ownedLand.length + (gameState.greenhousePlot ? 1 : 0)}</span>
             </div>
             <div className="flex items-center space-x-2">
               <PawPrint className="w-5 h-5" />
@@ -399,7 +399,6 @@ const FarmManager: React.FC = () => {
         
         {/* Column 1: Map and Land Acquisition */}
         <div className="lg:col-span-2 space-y-8">
-          <h2 className="text-2xl font-bold border-b pb-2">Farm Plots</h2>
           <FarmPlots 
             plots={allOwnedPlots} 
             selectedCropId={selectedCropId}
