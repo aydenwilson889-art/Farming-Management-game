@@ -1,4 +1,4 @@
-import { LucideIcon, Wheat, DollarSign, LandPlot, Tractor } from 'lucide-react';
+import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor } from 'lucide-react';
 
 // --- Types ---
 

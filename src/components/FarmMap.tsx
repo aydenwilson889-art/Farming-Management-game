@@ -5,7 +5,7 @@ import { LandPlot, PlotTile, Crop, getCropById } from '@/lib/game-data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Leaf, Check, X, Loader2 } from 'lucide-react';
+import { Leaf, Check, X, Loader2, LandPlot as LandPlotIcon } from 'lucide-react';
 
 interface FarmMapProps {
   ownedLand: LandPlot[];
@@ -76,7 +76,7 @@ const FarmMap: React.FC<FarmMapProps> = ({ ownedLand, selectedCropId, onTileActi
         <Card key={plot.id} className="shadow-lg">
           <CardHeader>
             <CardTitle className="text-xl flex items-center">
-              <LandPlot className="w-5 h-5 mr-2 text-amber-600" />
+              <LandPlotIcon className="w-5 h-5 mr-2 text-amber-600" />
               {plot.name} ({plot.size} tiles)
             </CardTitle>
           </CardHeader>
