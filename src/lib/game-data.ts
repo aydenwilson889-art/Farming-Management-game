@@ -1,4 +1,4 @@
-import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor } from 'lucide-react';
+import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Tomato, Pig, Egg, Milk } from 'lucide-react';
 
 // --- Types ---
 
@@ -28,14 +28,63 @@ export interface PlotTile {
   isReadyToHarvest: boolean;
 }
 
+export interface AnimalProduct {
+  id: string;
+  name: string;
+  icon: LucideIcon;
+  basePrice: number;
+}
+
+export interface Animal {
+  id: string;
+  name: string;
+  icon: LucideIcon;
+  purchaseCost: number;
+  productionTime: number; // Time in game days to produce one unit of product
+  product: AnimalProduct;
+  quantity: number; // How many units of this animal are owned
+  daysUntilProduction: number; // Counter for production
+}
+
 export interface GameState {
   cash: number;
   day: number;
-  inventory: Record<string, number>; // CropId -> Quantity
+  inventory: Record<string, number>; // CropId/AnimalProductId -> Quantity
   ownedLand: LandPlot[];
+  ownedAnimals: Animal[];
 }
 
 // --- Constants ---
+
+export const ANIMAL_PRODUCTS: AnimalProduct[] = [
+  { id: 'egg', name: 'Egg', icon: Egg, basePrice: 4 },
+  { id: 'milk', name: 'Milk', icon: Milk, basePrice: 8 },
+  { id: 'pork', name: 'Pork', icon: Pig, basePrice: 12 },
+];
+
+export const ANIMALS: Animal[] = [
+  {
+    id: 'chicken',
+    name: 'Chicken',
+    icon: Egg,
+    purchaseCost: 50,
+    productionTime: 2, // Produces every 2 days
+    product: ANIMAL_PRODUCTS.find(p => p.id === 'egg')!,
+    quantity: 0,
+    daysUntilProduction: 2,
+  },
+  {
+    id: 'cow',
+    name: 'Cow',
+    icon: Milk,
+    purchaseCost: 200,
+    productionTime: 3, // Produces every 3 days
+    product: ANIMAL_PRODUCTS.find(p => p.id === 'milk')!,
+    quantity: 0,
+    daysUntilProduction: 3,
+  },
+];
+
 
 export const CROPS: Crop[] = [
   {
@@ -55,6 +104,24 @@ export const CROPS: Crop[] = [
     growthTime: 8, // 8 days
     baseYield: 15,
     basePrice: 3,
+  },
+  {
+    id: 'carrot',
+    name: 'Carrot',
+    icon: Carrot,
+    seedCost: 5,
+    growthTime: 6, // 6 days
+    baseYield: 12,
+    basePrice: 4,
+  },
+  {
+    id: 'tomato',
+    name: 'Tomato',
+    icon: Tomato,
+    seedCost: 10,
+    growthTime: 10, // 10 days
+    baseYield: 20,
+    basePrice: 5,
   },
 ];
 
@@ -98,6 +165,19 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
       isReadyToHarvest: false,
     })),
   },
+  {
+    id: 'east_valley',
+    name: 'East Valley',
+    size: 36, // 6x6 grid
+    basePrice: 4000,
+    isOwned: false,
+    tiles: Array.from({ length: 36 }, (_, i) => ({
+      id: `tile-e-${i}`,
+      cropId: null,
+      growthStage: 0,
+      isReadyToHarvest: false,
+    })),
+  },
 ];
 
 export const INITIAL_GAME_STATE: GameState = {
@@ -105,10 +185,15 @@ export const INITIAL_GAME_STATE: GameState = {
   day: 1,
   inventory: {},
   ownedLand: INITIAL_LAND_PLOTS.filter(p => p.isOwned),
+  ownedAnimals: [],
 };
 
 // --- Utility Functions ---
 
 export const getCropById = (id: string): Crop | undefined => {
   return CROPS.find(c => c.id === id);
+};
+
+export const getAnimalProductById = (id: string): AnimalProduct | undefined => {
+  return ANIMAL_PRODUCTS.find(p => p.id === id);
 };

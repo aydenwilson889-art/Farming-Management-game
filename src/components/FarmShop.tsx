@@ -4,8 +4,8 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CROPS, Crop } from '@/lib/game-data';
-import { DollarSign, ShoppingCart, Package, Seed, ArrowRight } from 'lucide-react';
+import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, AnimalProduct, getAnimalProductById } from '@/lib/game-data';
+import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -15,15 +15,29 @@ interface FarmShopProps {
   selectedCropId: string | null;
   onSelectCrop: (cropId: string | null) => void;
   onBuySeed: (crop: Crop) => void;
-  onSellCrop: (crop: Crop, quantity: number) => void;
+  onSellItem: (itemId: string, quantity: number) => void;
+  onBuyAnimal: (animal: Animal) => void;
 }
 
-const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, selectedCropId, onSelectCrop, onBuySeed, onSellCrop }) => {
+const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, selectedCropId, onSelectCrop, onBuySeed, onSellItem, onBuyAnimal }) => {
   
-  const totalInventoryValue = Object.entries(inventory).reduce((total, [cropId, quantity]) => {
-    const crop = CROPS.find(c => c.id === cropId);
+  // Filter inventory into crops and animal products
+  const inventoryItems = Object.entries(inventory).map(([itemId, quantity]) => {
+    const crop = CROPS.find(c => c.id === itemId);
+    const product = ANIMAL_PRODUCTS.find(p => p.id === itemId);
+    
     if (crop) {
-      return total + quantity * crop.basePrice;
+      return { id: itemId, name: crop.name, quantity, basePrice: crop.basePrice, type: 'crop' };
+    }
+    if (product) {
+      return { id: itemId, name: product.name, quantity, basePrice: product.basePrice, type: 'product' };
+    }
+    return null;
+  }).filter(item => item !== null);
+
+  const totalInventoryValue = inventoryItems.reduce((total, item) => {
+    if (item) {
+      return total + item.quantity * item.basePrice;
     }
     return total;
   }, 0);
@@ -33,19 +47,20 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, selectedCropId, on
       <CardHeader>
         <CardTitle className="text-2xl flex items-center">
           <ShoppingCart className="w-6 h-6 mr-2" />
-          Marketplace & Inventory
+          Marketplace
         </CardTitle>
         <CardDescription>Manage your resources and trade goods.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="buy">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="buy">Buy Seeds</TabsTrigger>
-            <TabsTrigger value="sell">Sell Harvest ({Object.keys(inventory).length})</TabsTrigger>
+        <Tabs defaultValue="buy-seeds">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="buy-seeds">Buy Seeds</TabsTrigger>
+            <TabsTrigger value="buy-animals">Buy Animals</TabsTrigger>
+            <TabsTrigger value="sell">Sell Harvest ({inventoryItems.length})</TabsTrigger>
           </TabsList>
           
           {/* Buy Seeds Tab */}
-          <TabsContent value="buy" className="mt-4 space-y-3">
+          <TabsContent value="buy-seeds" className="mt-4 space-y-3">
             {CROPS.map((crop) => {
               const canAfford = cash >= crop.seedCost;
               const isSelected = selectedCropId === crop.id;
@@ -88,11 +103,47 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, selectedCropId, on
               );
             })}
           </TabsContent>
+
+          {/* Buy Animals Tab */}
+          <TabsContent value="buy-animals" className="mt-4 space-y-3">
+            {ANIMALS.map((animal) => {
+              const canAfford = cash >= animal.purchaseCost;
+              
+              return (
+                <div 
+                  key={animal.id} 
+                  className={cn(
+                    "flex items-center justify-between p-3 border rounded-lg transition-colors hover:bg-muted/50"
+                  )}
+                >
+                  <div className="flex items-center space-x-3">
+                    <animal.icon className="w-6 h-6 text-amber-700" />
+                    <div>
+                      <h4 className="font-semibold">{animal.name}</h4>
+                      <p className="text-xs text-muted-foreground">
+                        Produces {animal.product.name} every {animal.productionTime} days.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      onClick={() => onBuyAnimal(animal)}
+                      disabled={!canAfford}
+                      className="h-8 flex items-center space-x-1"
+                    >
+                      <DollarSign className="w-4 h-4" />
+                      <span>Buy ({animal.purchaseCost})</span>
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </TabsContent>
           
           {/* Sell Inventory Tab */}
           <TabsContent value="sell" className="mt-4 space-y-3">
-            {Object.entries(inventory).length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">Inventory is empty. Harvest some crops first!</p>
+            {inventoryItems.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">Inventory is empty. Harvest crops or collect products!</p>
             ) : (
               <>
                 <div className="flex justify-between items-center p-2 border-b mb-3">
@@ -103,28 +154,25 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, selectedCropId, on
                   </Badge>
                 </div>
                 
-                {Object.entries(inventory).map(([cropId, quantity]) => {
-                  const crop = CROPS.find(c => c.id === cropId);
-                  if (!crop || quantity === 0) return null;
-                  
-                  const value = quantity * crop.basePrice;
+                {inventoryItems.map((item) => {
+                  const value = item.quantity * item.basePrice;
 
                   return (
                     <div 
-                      key={cropId} 
+                      key={item.id} 
                       className="flex items-center justify-between p-3 border rounded-lg bg-card"
                     >
                       <div className="flex items-center space-x-3">
                         <Package className="w-6 h-6 text-blue-500" />
                         <div>
-                          <h4 className="font-semibold">{crop.name} ({quantity.toLocaleString()} units)</h4>
+                          <h4 className="font-semibold">{item.name} ({item.quantity.toLocaleString()} units)</h4>
                           <p className="text-xs text-muted-foreground">
-                            Sell Price: ${crop.basePrice} per unit. Total: ${value.toLocaleString()}
+                            Sell Price: ${item.basePrice} per unit. Total: ${value.toLocaleString()}
                           </p>
                         </div>
                       </div>
                       <Button
-                        onClick={() => onSellCrop(crop, quantity)}
+                        onClick={() => onSellItem(item.id, item.quantity)}
                         variant="destructive"
                         className="h-8 flex items-center space-x-1"
                       >

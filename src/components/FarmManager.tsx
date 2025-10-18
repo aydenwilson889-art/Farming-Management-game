@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS } from '@/lib/game-data';
+import { INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS, Animal, getAnimalProductById } from '@/lib/game-data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor } from 'lucide-react';
+import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint } from 'lucide-react';
 import FarmMap from './FarmMap';
 import FarmShop from './FarmShop';
+import AnimalPen from './AnimalPen';
 import { showSuccess, showError } from '@/utils/toast';
 
 const FarmManager: React.FC = () => {
@@ -21,7 +22,7 @@ const FarmManager: React.FC = () => {
       setGameState(prev => {
         const newDay = prev.day + 1;
         
-        // 1. Advance Growth Stages
+        // 1. Advance Crop Growth Stages
         const newOwnedLand = prev.ownedLand.map(plot => ({
           ...plot,
           tiles: plot.tiles.map(tile => {
@@ -43,10 +44,28 @@ const FarmManager: React.FC = () => {
           })
         }));
         
-        // 2. Check for events (simplified for now)
-        if (newDay === 1) {
-            // Initial message handled by separate useEffect
-        } else if (newDay % 10 === 0) {
+        // 2. Advance Animal Production
+        let newInventory = { ...prev.inventory };
+        const newOwnedAnimals = prev.ownedAnimals.map(animal => {
+          const daysLeft = animal.daysUntilProduction - 1;
+          
+          if (daysLeft <= 0) {
+            // Production complete!
+            const product = animal.product;
+            const yieldAmount = animal.quantity; // 1 unit of product per animal
+            
+            newInventory[product.id] = (newInventory[product.id] || 0) + yieldAmount;
+            showSuccess(`Collected ${yieldAmount} unit(s) of ${product.name} from the ${animal.name}s!`);
+            
+            // Reset production timer
+            return { ...animal, daysUntilProduction: animal.productionTime };
+          }
+          
+          return { ...animal, daysUntilProduction: daysLeft };
+        });
+
+        // 3. Check for events (simplified for now)
+        if (newDay % 10 === 0) {
             showSuccess(`Day ${newDay}: A successful harvest season is approaching!`);
         }
 
@@ -54,6 +73,8 @@ const FarmManager: React.FC = () => {
           ...prev,
           day: newDay,
           ownedLand: newOwnedLand,
+          ownedAnimals: newOwnedAnimals,
+          inventory: newInventory,
         };
       });
     }, 5000); // 5 seconds per day
@@ -79,12 +100,58 @@ const FarmManager: React.FC = () => {
     }
   }, [gameState.cash]);
 
-  const handleSellCrop = useCallback((crop: Crop, quantity: number) => {
-    const value = quantity * crop.basePrice;
+  const handleBuyAnimal = useCallback((animal: Animal) => {
+    if (gameState.cash >= animal.purchaseCost) {
+      setGameState(prev => {
+        const existingAnimalIndex = prev.ownedAnimals.findIndex(a => a.id === animal.id);
+        let newOwnedAnimals;
+
+        if (existingAnimalIndex !== -1) {
+          // If animal type already exists, increase quantity
+          newOwnedAnimals = prev.ownedAnimals.map((a, index) => 
+            index === existingAnimalIndex ? { ...a, quantity: a.quantity + 1 } : a
+          );
+        } else {
+          // If new animal type, add it
+          newOwnedAnimals = [...prev.ownedAnimals, { ...animal, quantity: 1 }];
+        }
+
+        return {
+          ...prev,
+          cash: prev.cash - animal.purchaseCost,
+          ownedAnimals: newOwnedAnimals,
+        };
+      });
+      showSuccess(`Purchased 1 ${animal.name} for $${animal.purchaseCost}.`);
+    } else {
+      showError("Insufficient funds to buy this animal.");
+    }
+  }, [gameState.cash]);
+
+
+  const handleSellItem = useCallback((itemId: string, quantity: number) => {
+    const crop = getCropById(itemId);
+    const product = getAnimalProductById(itemId);
+    
+    let basePrice = 0;
+    let itemName = "";
+
+    if (crop) {
+      basePrice = crop.basePrice;
+      itemName = crop.name;
+    } else if (product) {
+      basePrice = product.basePrice;
+      itemName = product.name;
+    } else {
+      showError("Item not found in market.");
+      return;
+    }
+
+    const value = quantity * basePrice;
     
     setGameState(prev => {
       const newInventory = { ...prev.inventory };
-      delete newInventory[crop.id]; // Sell all of this crop type
+      delete newInventory[itemId]; // Sell all of this item type
       
       return {
         ...prev,
@@ -92,7 +159,7 @@ const FarmManager: React.FC = () => {
         inventory: newInventory,
       };
     });
-    showSuccess(`Sold ${quantity.toLocaleString()} units of ${crop.name} for $${value.toLocaleString()}.`);
+    showSuccess(`Sold ${quantity.toLocaleString()} units of ${itemName} for $${value.toLocaleString()}.`);
   }, []);
 
   const handleTileAction = useCallback((plotId: string, tileId: string, action: 'plant' | 'harvest') => {
@@ -217,6 +284,10 @@ const FarmManager: React.FC = () => {
               <LandPlotIcon className="w-5 h-5" />
               <span className="text-xl font-semibold">Plots: {gameState.ownedLand.length}</span>
             </div>
+            <div className="flex items-center space-x-2">
+              <PawPrint className="w-5 h-5" />
+              <span className="text-xl font-semibold">Animals: {gameState.ownedAnimals.reduce((sum, a) => sum + a.quantity, 0)}</span>
+            </div>
           </div>
         </CardHeader>
       </Card>
@@ -232,6 +303,9 @@ const FarmManager: React.FC = () => {
             onTileAction={handleTileAction}
           />
           
+          <h2 className="text-2xl font-bold border-b pb-2">Livestock</h2>
+          <AnimalPen ownedAnimals={gameState.ownedAnimals} />
+
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="text-xl">Land Acquisition</CardTitle>
@@ -264,7 +338,8 @@ const FarmManager: React.FC = () => {
             selectedCropId={selectedCropId}
             onSelectCrop={setSelectedCropId}
             onBuySeed={handleBuySeed}
-            onSellCrop={handleSellCrop}
+            onSellItem={handleSellItem}
+            onBuyAnimal={handleBuyAnimal}
           />
         </div>
       </div>
