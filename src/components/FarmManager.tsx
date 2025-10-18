@@ -1,15 +1,18 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { LandPlot, Crop, Animal, SEASONS } from '@/lib/game-data';
-import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud } from 'lucide-react';
+import { LandPlot, Crop, Animal, SEASONS, getCropById } from '@/lib/game-data';
+import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud, ChevronDown } from 'lucide-react';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Button } from '@/components/ui/button';
 import FarmPlots from './FarmPlots';
 import FarmShop from './FarmShop';
 import AnimalPen from './AnimalPen';
 import FarmConstruction from './FarmConstruction';
 import PurchaseModal from './PurchaseModal';
 import AdminPanel from './AdminPanel';
+import CropInfoCard from './CropInfoCard';
 import { useFarmGame, PurchaseDetails } from '@/hooks/use-farm-game';
 import { showSuccess } from '@/utils/toast';
 
@@ -29,6 +32,7 @@ const FarmManager: React.FC = () => {
 
   const [selectedCropId, setSelectedCropId] = useState<string | null>(null);
   const [modalItem, setModalItem] = useState<Crop | Animal | null>(null);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
   const isModalOpen = !!modalItem;
 
   // --- Modal Handlers ---
@@ -68,18 +72,19 @@ const FarmManager: React.FC = () => {
   }
 
   const SeasonIcon = getSeasonIcon(gameState.currentSeason);
+  const selectedCrop = selectedCropId ? getCropById(selectedCropId) : null;
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-8 p-4">
       
       {/* Header and Stats */}
       <Card className="shadow-xl bg-primary text-primary-foreground">
-        <CardHeader className="flex flex-row items-center justify-between p-4">
+        <CardHeader className="flex flex-row items-center justify-between p-4 flex-wrap gap-4">
           <CardTitle className="text-3xl font-bold flex items-center">
             <Tractor className="w-8 h-8 mr-3" />
             Grandpa's Legacy Farm Simulator
           </CardTitle>
-          <div className="flex space-x-6">
+          <div className="flex space-x-6 flex-wrap gap-4">
             <div className="flex items-center space-x-2">
               <DollarSign className="w-5 h-5" />
               <span className="text-xl font-semibold">Cash: ${gameState.cash.toLocaleString()}</span>
@@ -119,8 +124,13 @@ const FarmManager: React.FC = () => {
           <AnimalPen ownedAnimals={gameState.ownedAnimals} />
         </div>
         
-        {/* Column 2: Shop and Construction */}
+        {/* Column 2: Shop, Construction, and Crop Info */}
         <div className="lg:col-span-1 space-y-8">
+          <CropInfoCard 
+            crop={selectedCrop} 
+            currentSeason={gameState.currentSeason} 
+          />
+
           <FarmShop 
             cash={gameState.cash}
             inventory={gameState.inventory}
@@ -142,13 +152,28 @@ const FarmManager: React.FC = () => {
         </div>
       </div>
       
-      {/* Admin Panel */}
-      <AdminPanel
-        currentCash={gameState.cash}
-        currentDay={gameState.day}
-        onAdjustCash={adjustCash}
-        onAdjustDay={adjustDay}
-      />
+      {/* Collapsible Admin Panel */}
+      <Collapsible open={isAdminOpen} onOpenChange={setIsAdminOpen} className="w-full">
+        <div className="flex items-center justify-between space-x-4 px-4 py-2 border rounded-md bg-destructive/10">
+          <h4 className="text-lg font-semibold text-destructive">
+            Admin Controls
+          </h4>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="w-9 p-0 text-destructive hover:bg-destructive/20">
+              <ChevronDown className={cn("h-4 w-4 transition-transform", isAdminOpen && "rotate-180")} />
+              <span className="sr-only">Toggle Admin Panel</span>
+            </Button>
+          </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent className="space-y-4 pt-4">
+          <AdminPanel
+            currentCash={gameState.cash}
+            currentDay={gameState.day}
+            onAdjustCash={adjustCash}
+            onAdjustDay={adjustDay}
+          />
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Purchase Modal */}
       <PurchaseModal
