@@ -1,4 +1,4 @@
-import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Sheep, Feather, Fish, Rabbit, Bird } from 'lucide-react';
+import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird } from 'lucide-react';
 
 // --- Types ---
 
@@ -111,7 +111,7 @@ export const ANIMALS: Animal[] = [
   {
     id: 'sheep',
     name: 'Sheep',
-    icon: Sheep,
+    icon: Feather, // Using Feather instead of Sheep
     purchaseCost: 100,
     productionTime: 5,
     product: ANIMAL_PRODUCTS.find(p => p.id === 'wool')!,
