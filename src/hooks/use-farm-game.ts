@@ -50,6 +50,26 @@ export function useFarmGame() {
   const [gameState, setGameState] = useState(INITIAL_GAME_STATE);
   const [availableLand, setAvailableLand] = useState(INITIAL_LAND_PLOTS);
 
+  // --- Admin/External Adjustment Functions ---
+
+  const adjustCash = useCallback((newCash: number) => {
+    setGameState(prev => ({ ...prev, cash: newCash }));
+  }, []);
+
+  const adjustDay = useCallback((newDay: number) => {
+    // Calculate new season based on the new day
+    const dayInSeason = (newDay - 1) % DAYS_PER_SEASON;
+    const currentSeasonIndex = Math.floor((newDay - 1) / DAYS_PER_SEASON) % SEASONS.length;
+    const newSeason = SEASONS[currentSeasonIndex];
+
+    setGameState(prev => ({ 
+        ...prev, 
+        day: newDay,
+        currentSeason: newSeason,
+    }));
+  }, []);
+
+
   // --- Game Loop (Time Progression) ---
   useEffect(() => {
     const interval = setInterval(() => {
@@ -389,5 +409,7 @@ export function useFarmGame() {
     handleTileAction,
     handleBuyLand,
     handleBuyGreenhouse,
+    adjustCash,
+    adjustDay,
   };
 }

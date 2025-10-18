@@ -9,6 +9,7 @@ import FarmShop from './FarmShop';
 import AnimalPen from './AnimalPen';
 import FarmConstruction from './FarmConstruction';
 import PurchaseModal from './PurchaseModal';
+import AdminPanel from './AdminPanel';
 import { useFarmGame, PurchaseDetails } from '@/hooks/use-farm-game';
 import { showSuccess } from '@/utils/toast';
 
@@ -22,6 +23,8 @@ const FarmManager: React.FC = () => {
     handleTileAction,
     handleBuyLand,
     handleBuyGreenhouse,
+    adjustCash,
+    adjustDay,
   } = useFarmGame();
 
   const [selectedCropId, setSelectedCropId] = useState<string | null>(null);
@@ -138,6 +141,14 @@ const FarmManager: React.FC = () => {
           />
         </div>
       </div>
+      
+      {/* Admin Panel */}
+      <AdminPanel
+        currentCash={gameState.cash}
+        currentDay={gameState.day}
+        onAdjustCash={adjustCash}
+        onAdjustDay={adjustDay}
+      />
 
       {/* Purchase Modal */}
       <PurchaseModal
