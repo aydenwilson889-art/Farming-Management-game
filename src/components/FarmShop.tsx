@@ -4,7 +4,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, AnimalProduct, getAnimalProductById } from '@/lib/game-data';
+import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, getAnimalProductById } from '@/lib/game-data';
 import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -12,16 +12,15 @@ import { cn } from '@/lib/utils';
 interface FarmShopProps {
   cash: number;
   inventory: Record<string, number>;
-  ownedAnimals: Animal[]; // Added ownedAnimals prop
+  ownedAnimals: Animal[];
   selectedCropId: string | null;
   onSelectCrop: (cropId: string | null) => void;
-  onBuySeed: (crop: Crop, quantity?: number) => void; // Updated to accept quantity
+  onOpenPurchaseModal: (item: Crop | Animal) => void; // New handler to open modal
   onSellItem: (itemId: string, quantity: number) => void;
-  onBuyAnimal: (animal: Animal, quantity?: number) => void; // Updated to accept quantity
   onSellAnimal: (animalId: string, quantity: number) => void; 
 }
 
-const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, selectedCropId, onSelectCrop, onBuySeed, onSellItem, onBuyAnimal, onSellAnimal }) => {
+const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, selectedCropId, onSelectCrop, onOpenPurchaseModal, onSellItem, onSellAnimal }) => {
   
   // Filter inventory into crops and animal products
   const inventoryItems = Object.entries(inventory).map(([itemId, quantity]) => {
@@ -46,9 +45,6 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
 
   const totalOwnedAnimals = ownedAnimals.reduce((sum, a) => sum + a.quantity, 0);
 
-  const BULK_QUANTITY = 10;
-  const BULK_DISCOUNT = 0.05; // 5% discount
-
   return (
     <Card className="w-full shadow-lg">
       <CardHeader>
@@ -56,7 +52,7 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
           <ShoppingCart className="w-6 h-6 mr-2" />
           Marketplace
         </CardTitle>
-        <CardDescription>Manage your resources and trade goods. Use bulk options for discounts!</CardDescription>
+        <CardDescription>Manage your resources and trade goods. Use the 'Buy' button for custom quantities and tax breakdown.</CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="buy-seeds">
@@ -70,9 +66,7 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
           {/* Buy Seeds Tab */}
           <TabsContent value="buy-seeds" className="mt-4 space-y-3">
             {CROPS.map((crop) => {
-              const bulkCost = Math.floor(crop.seedCost * BULK_QUANTITY * (1 - BULK_DISCOUNT));
-              const canAffordSingle = cash >= crop.seedCost;
-              const canAffordBulk = cash >= bulkCost;
+              const canAfford = cash >= crop.seedCost;
               const isSelected = selectedCropId === crop.id;
               
               return (
@@ -101,22 +95,12 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
                       {isSelected ? "Selected" : "Select"}
                     </Button>
                     <Button
-                      onClick={() => onBuySeed(crop, BULK_QUANTITY)}
-                      disabled={!canAffordBulk}
-                      variant="secondary"
-                      className="h-8 flex items-center space-x-1 text-xs"
-                      title={`Buy ${BULK_QUANTITY} for $${bulkCost} (5% off)`}
-                    >
-                      <DollarSign className="w-3 h-3" />
-                      <span>Buy 10 (${bulkCost})</span>
-                    </Button>
-                    <Button
-                      onClick={() => onBuySeed(crop, 1)}
-                      disabled={!canAffordSingle}
+                      onClick={() => onOpenPurchaseModal(crop)}
+                      disabled={!canAfford}
                       className="h-8 flex items-center space-x-1 text-xs"
                     >
                       <DollarSign className="w-3 h-3" />
-                      <span>Buy 1 (${crop.seedCost})</span>
+                      <span>Buy Online</span>
                     </Button>
                   </div>
                 </div>
@@ -127,9 +111,7 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
           {/* Buy Animals Tab */}
           <TabsContent value="buy-animals" className="mt-4 space-y-3">
             {ANIMALS.map((animal) => {
-              const bulkCost = Math.floor(animal.purchaseCost * BULK_QUANTITY * (1 - BULK_DISCOUNT));
-              const canAffordSingle = cash >= animal.purchaseCost;
-              const canAffordBulk = cash >= bulkCost;
+              const canAfford = cash >= animal.purchaseCost;
               
               return (
                 <div 
@@ -149,22 +131,12 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
                   </div>
                   <div className="flex items-center space-x-2">
                     <Button
-                      onClick={() => onBuyAnimal(animal, BULK_QUANTITY)}
-                      disabled={!canAffordBulk}
-                      variant="secondary"
-                      className="h-8 flex items-center space-x-1 text-xs"
-                      title={`Buy ${BULK_QUANTITY} for $${bulkCost} (5% off)`}
-                    >
-                      <DollarSign className="w-3 h-3" />
-                      <span>Buy 10 (${bulkCost})</span>
-                    </Button>
-                    <Button
-                      onClick={() => onBuyAnimal(animal, 1)}
-                      disabled={!canAffordSingle}
+                      onClick={() => onOpenPurchaseModal(animal)}
+                      disabled={!canAfford}
                       className="h-8 flex items-center space-x-1 text-xs"
                     >
                       <DollarSign className="w-3 h-3" />
-                      <span>Buy 1 (${animal.purchaseCost})</span>
+                      <span>Buy Online</span>
                     </Button>
                   </div>
                 </div>

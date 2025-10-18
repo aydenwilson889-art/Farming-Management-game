@@ -1,24 +1,53 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS, Animal, ANIMALS, getAnimalProductById, SEASONS, DAYS_PER_SEASON, TAX_RATE, INITIAL_GREENHOUSE_PLOT, GREENHOUSE_COST } from '@/lib/game-data';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud, Factory } from 'lucide-react';
-import FarmPlots from './FarmPlots'; // Renamed from FarmMap
+import { LandPlot, Crop, Animal, SEASONS } from '@/lib/game-data';
+import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud } from 'lucide-react';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import FarmPlots from './FarmPlots';
 import FarmShop from './FarmShop';
 import AnimalPen from './AnimalPen';
 import FarmConstruction from './FarmConstruction';
-import { showSuccess, showError } from '@/utils/toast';
+import PurchaseModal from './PurchaseModal';
+import { useFarmGame, PurchaseDetails } from '@/hooks/use-farm-game';
+import { showSuccess } from '@/utils/toast';
 
 const FarmManager: React.FC = () => {
-  const [gameState, setGameState] = useState(INITIAL_GAME_STATE);
+  const {
+    gameState,
+    availableLand,
+    executePurchase,
+    handleSellAnimal,
+    handleSellItem,
+    handleTileAction,
+    handleBuyLand,
+    handleBuyGreenhouse,
+  } = useFarmGame();
+
   const [selectedCropId, setSelectedCropId] = useState<string | null>(null);
-  const [availableLand, setAvailableLand] = useState(INITIAL_LAND_PLOTS);
+  const [modalItem, setModalItem] = useState<Crop | Animal | null>(null);
+  const isModalOpen = !!modalItem;
 
-  const BULK_QUANTITY = 10;
-  const BULK_DISCOUNT = 0.05; // 5% discount
+  // --- Modal Handlers ---
+  const handleOpenPurchaseModal = useCallback((item: Crop | Animal) => {
+    setModalItem(item);
+  }, []);
 
+  const handleClosePurchaseModal = useCallback(() => {
+    setModalItem(null);
+  }, []);
+
+  const handleConfirmPurchase = useCallback((details: PurchaseDetails) => {
+    const success = executePurchase(details);
+    if (success && details.type === 'seed') {
+        // Automatically select the purchased seed for planting if successful
+        setSelectedCropId(details.item.id);
+        showSuccess(`Selected ${details.item.name} for planting.`);
+    }
+  }, [executePurchase]);
+
+
+  // --- Utility ---
   const getSeasonIcon = (season: typeof SEASONS[number]) => {
     switch (season) {
       case 'Spring': return Leaf;
@@ -28,398 +57,12 @@ const FarmManager: React.FC = () => {
       default: return Clock;
     }
   };
-
-  // --- Game Loop (Time Progression) ---
-  useEffect(() => {
-    // Advance time every 30 seconds (representing one game day)
-    const interval = setInterval(() => {
-      setGameState(prev => {
-        const newDay = prev.day + 1;
-        
-        // 1. Season Progression
-        const dayInSeason = (newDay - 1) % DAYS_PER_SEASON;
-        const currentSeasonIndex = Math.floor((newDay - 1) / DAYS_PER_SEASON) % SEASONS.length;
-        const newSeason = SEASONS[currentSeasonIndex];
-        
-        if (newSeason !== prev.currentSeason) {
-            showSuccess(`It is now ${newSeason}!`);
-        }
-
-        // 2. Tax Collection (End of Season)
-        let newCash = prev.cash;
-        if (dayInSeason === DAYS_PER_SEASON - 1) { // Check if it's the last day of the season
-            const taxAmount = Math.floor(prev.cash * TAX_RATE);
-            newCash = prev.cash - taxAmount;
-            showError(`Taxes collected! Paid $${taxAmount.toLocaleString()} (10% of cash).`);
-        }
-        
-        // 3. Advance Crop Growth Stages
-        const isWinter = newSeason === 'Winter';
-
-        // Function to process growth for a single plot
-        const processPlotGrowth = (plot: LandPlot): LandPlot => {
-            const isGreenhouse = plot.id === 'greenhouse';
-            
-            return {
-                ...plot,
-                tiles: plot.tiles.map(tile => {
-                    if (tile.cropId && !tile.isReadyToHarvest) {
-                        const crop = getCropById(tile.cropId);
-                        if (crop) {
-                            
-                            // Regular land stops growth in winter
-                            if (isWinter && !isGreenhouse) {
-                                return tile;
-                            }
-
-                            // Calculate growth increment based on 100% / growthTime
-                            let growthIncrement = (1 / crop.growthTime) * 100;
-                            
-                            // Apply optimal season bonus (e.g., 20% faster growth)
-                            if (crop.optimalSeason === newSeason) {
-                                growthIncrement *= 1.2;
-                            }
-                            
-                            let newGrowthStage = tile.growthStage + growthIncrement;
-                            
-                            if (newGrowthStage >= 100) {
-                                newGrowthStage = 100;
-                                return { ...tile, growthStage: newGrowthStage, isReadyToHarvest: true };
-                            }
-                            return { ...tile, growthStage: newGrowthStage };
-                        }
-                    }
-                    return tile;
-                })
-            };
-        };
-
-        const newOwnedLand = prev.ownedLand.map(processPlotGrowth);
-        const newGreenhousePlot = prev.greenhousePlot ? processPlotGrowth(prev.greenhousePlot) : null;
-        
-        // 4. Advance Animal Production
-        let newInventory = { ...prev.inventory };
-        const newOwnedAnimals = prev.ownedAnimals.map(animal => {
-          const daysLeft = animal.daysUntilProduction - 1;
-          
-          if (daysLeft <= 0) {
-            // Production complete!
-            const product = animal.product;
-            const yieldAmount = animal.quantity; // 1 unit of product per animal
-            
-            newInventory[product.id] = (newInventory[product.id] || 0) + yieldAmount;
-            showSuccess(`Collected ${yieldAmount} unit(s) of ${product.name} from the ${animal.name}s!`);
-            
-            // Reset production timer
-            return { ...animal, daysUntilProduction: animal.productionTime };
-          }
-          
-          return { ...animal, daysUntilProduction: daysLeft };
-        });
-
-        return {
-          ...prev,
-          day: newDay,
-          currentSeason: newSeason,
-          cash: newCash,
-          ownedLand: newOwnedLand,
-          greenhousePlot: newGreenhousePlot,
-          ownedAnimals: newOwnedAnimals,
-          inventory: newInventory,
-        };
-      });
-    }, 30000); // 30 seconds per day
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // --- Handlers ---
-
-  const handleBuySeed = useCallback((crop: Crop, quantity: number = 1) => {
-    const cost = quantity === 1 
-      ? crop.seedCost 
-      : Math.floor(crop.seedCost * quantity * (1 - BULK_DISCOUNT));
-
-    if (gameState.cash >= cost) {
-      setGameState(prev => ({
-        ...prev,
-        cash: prev.cash - cost,
-        inventory: {
-          ...prev.inventory,
-          [crop.id]: (prev.inventory[crop.id] || 0) + quantity,
-        }
-      }));
-      showSuccess(`Purchased ${quantity} unit(s) of ${crop.name} seed for $${cost}.`);
-    } else {
-      showError("Insufficient funds to buy seeds.");
-    }
-  }, [gameState.cash]);
-
-  const handleBuyAnimal = useCallback((animal: Animal, quantity: number = 1) => {
-    const cost = quantity === 1 
-      ? animal.purchaseCost 
-      : Math.floor(animal.purchaseCost * quantity * (1 - BULK_DISCOUNT));
-
-    if (gameState.cash >= cost) {
-      setGameState(prev => {
-        const existingAnimalIndex = prev.ownedAnimals.findIndex(a => a.id === animal.id);
-        let newOwnedAnimals;
-
-        if (existingAnimalIndex !== -1) {
-          // If animal type already exists, increase quantity
-          newOwnedAnimals = prev.ownedAnimals.map((a, index) => 
-            index === existingAnimalIndex ? { ...a, quantity: a.quantity + quantity } : a
-          );
-        } else {
-          // If new animal type, add it
-          // Note: When buying bulk, we initialize all new animals with their full production time.
-          const newAnimals = Array(quantity).fill(0).map(() => ({ 
-            ...animal, 
-            quantity: 1, 
-            daysUntilProduction: animal.productionTime 
-          }));
-          
-          // Since we are tracking quantity per type, we just add the quantity to the existing type or create a new entry.
-          newOwnedAnimals = [...prev.ownedAnimals, { ...animal, quantity: quantity, daysUntilProduction: animal.productionTime }];
-        }
-        
-        // Re-evaluating the logic for bulk animal purchase:
-        // Since the AnimalPen tracks production time per *type* of animal, we just increase the quantity of that type.
-        // If we buy 10 chickens, they all share the same production timer.
-        
-        if (existingAnimalIndex !== -1) {
-            newOwnedAnimals = prev.ownedAnimals.map((a, index) => 
-                index === existingAnimalIndex ? { ...a, quantity: a.quantity + quantity } : a
-            );
-        } else {
-            newOwnedAnimals = [...prev.ownedAnimals, { ...animal, quantity: quantity, daysUntilProduction: animal.productionTime }];
-        }
-
-
-        return {
-          ...prev,
-          cash: prev.cash - cost,
-          ownedAnimals: newOwnedAnimals,
-        };
-      });
-      showSuccess(`Purchased ${quantity} ${animal.name}(s) for $${cost}.`);
-    } else {
-      showError("Insufficient funds to buy this animal.");
-    }
-  }, [gameState.cash]);
-
-  const handleSellAnimal = useCallback((animalId: string, quantity: number) => {
-    const animalType = ANIMALS.find(a => a.id === animalId);
-    if (!animalType) {
-      showError("Animal type not found.");
-      return;
-    }
-
-    // Use a reduced selling price, e.g., 75% of purchase cost
-    const sellPricePerUnit = Math.floor(animalType.purchaseCost * 0.75);
-    const totalSellValue = quantity * sellPricePerUnit;
-
-    setGameState(prev => {
-      const existingAnimalIndex = prev.ownedAnimals.findIndex(a => a.id === animalId);
-      
-      if (existingAnimalIndex === -1 || prev.ownedAnimals[existingAnimalIndex].quantity < quantity) {
-        showError("Error selling animals: Quantity mismatch.");
-        return prev;
-      }
-
-      // Remove the entire entry since we are selling ALL units of this type
-      const newOwnedAnimals = prev.ownedAnimals.filter(a => a.id !== animalId);
-      
-      return {
-        ...prev,
-        cash: prev.cash + totalSellValue,
-        ownedAnimals: newOwnedAnimals,
-      };
-    });
-    showSuccess(`Sold ${quantity} ${animalType.name}(s) for $${totalSellValue.toLocaleString()}.`);
-  }, [gameState.cash]);
-
-
-  const handleSellItem = useCallback((itemId: string, quantity: number) => {
-    const crop = getCropById(itemId);
-    const product = getAnimalProductById(itemId);
-    
-    let basePrice = 0;
-    let itemName = "";
-
-    if (crop) {
-      basePrice = crop.basePrice;
-      itemName = crop.name;
-    } else if (product) {
-      basePrice = product.basePrice;
-      itemName = product.name;
-    } else {
-      showError("Item not found in market.");
-      return;
-    }
-
-    const value = quantity * basePrice;
-    
-    setGameState(prev => {
-      const newInventory = { ...prev.inventory };
-      delete newInventory[itemId]; // Sell all of this item type
-      
-      return {
-        ...prev,
-        cash: prev.cash + value,
-        inventory: newInventory,
-      };
-    });
-    showSuccess(`Sold ${quantity.toLocaleString()} units of ${itemName} for $${value.toLocaleString()}.`);
-  }, []);
-
-  const handleTileAction = useCallback((plotId: string, tileId: string, action: 'plant' | 'harvest') => {
-    setGameState(prev => {
-      
-      let targetPlot: LandPlot | null = null;
-      let plotIndex = -1;
-      
-      if (plotId === 'greenhouse' && prev.greenhousePlot) {
-          targetPlot = prev.greenhousePlot;
-      } else {
-          plotIndex = prev.ownedLand.findIndex(p => p.id === plotId);
-          if (plotIndex !== -1) {
-              targetPlot = prev.ownedLand[plotIndex];
-          }
-      }
-
-      if (!targetPlot) return prev;
-
-      const isGreenhouse = targetPlot.id === 'greenhouse';
-      const isWinter = prev.currentSeason === 'Winter';
-      
-      const tileIndex = targetPlot.tiles.findIndex(t => t.id === tileId);
-      if (tileIndex === -1) return prev;
-      
-      const tile = { ...targetPlot.tiles[tileIndex] };
-      
-      let newInventory = { ...prev.inventory };
-      let newOwnedLand = [...prev.ownedLand];
-      let newGreenhousePlot = prev.greenhousePlot;
-
-
-      if (action === 'plant' && selectedCropId) {
-        const crop = getCropById(selectedCropId);
-        if (!crop) return prev;
-        
-        // Planting restriction check: Only allow planting in winter if it's the greenhouse
-        if (isWinter && !isGreenhouse) {
-            showError("Cannot plant during Winter outside of the Greenhouse!");
-            return prev;
-        }
-
-        const seedCount = prev.inventory[selectedCropId] || 0;
-        
-        if (seedCount > 0) {
-          // Plant the seed
-          tile.cropId = selectedCropId;
-          tile.growthStage = 0;
-          tile.isReadyToHarvest = false;
-          
-          // Consume seed from inventory
-          newInventory[selectedCropId] = seedCount - 1;
-          if (newInventory[selectedCropId] === 0) delete newInventory[selectedCropId];
-          
-          showSuccess(`Planted ${crop.name} seed in ${targetPlot.name}.`);
-          
-        } else {
-          showError(`You need to buy ${crop.name} seeds first!`);
-          return prev;
-        }
-      } 
-      
-      if (action === 'harvest' && tile.isReadyToHarvest && tile.cropId) {
-        const crop = getCropById(tile.cropId);
-        if (!crop) return prev;
-        
-        // Calculate yield (simplified: base yield)
-        const yieldAmount = crop.baseYield; 
-        
-        // Reset tile
-        tile.cropId = null;
-        tile.growthStage = 0;
-        tile.isReadyToHarvest = false;
-        
-        // Add to inventory
-        newInventory = { 
-          ...prev.inventory, 
-          [crop.id]: (prev.inventory[crop.id] || 0) + yieldAmount 
-        };
-        
-        showSuccess(`Harvested ${yieldAmount} units of ${crop.name} from ${targetPlot.name}!`);
-      }
-      
-      // Update the plot structure
-      const updatedPlot = { ...targetPlot, tiles: targetPlot.tiles.map((t, i) => i === tileIndex ? tile : t) };
-
-      if (isGreenhouse) {
-          newGreenhousePlot = updatedPlot;
-      } else {
-          newOwnedLand[plotIndex] = updatedPlot;
-      }
-
-      return { 
-          ...prev, 
-          ownedLand: newOwnedLand, 
-          greenhousePlot: newGreenhousePlot,
-          inventory: newInventory 
-      };
-    });
-  }, [selectedCropId, gameState.currentSeason]);
-  
-  const handleBuyLand = useCallback((plot: LandPlot) => {
-    if (gameState.cash >= plot.basePrice) {
-      setGameState(prev => {
-        const newPlot = { ...plot, isOwned: true };
-        
-        // Add to owned land
-        const newOwnedLand = [...prev.ownedLand, newPlot];
-        
-        // Update available land list
-        setAvailableLand(prevAvailable => prevAvailable.map(p => p.id === plot.id ? newPlot : p));
-        
-        return {
-          ...prev,
-          cash: prev.cash - plot.basePrice,
-          ownedLand: newOwnedLand,
-        };
-      });
-      showSuccess(`Successfully purchased ${plot.name} for $${plot.basePrice.toLocaleString()}.`);
-    } else {
-      showError("Insufficient funds to purchase this land plot.");
-    }
-  }, [gameState.cash]);
-
-  const handleBuyGreenhouse = useCallback(() => {
-    if (gameState.cash >= GREENHOUSE_COST) {
-        setGameState(prev => ({
-            ...prev,
-            cash: prev.cash - GREENHOUSE_COST,
-            greenhousePlot: { ...INITIAL_GREENHOUSE_PLOT, isOwned: true },
-        }));
-        showSuccess("Greenhouse purchased! You can now grow crops year-round in the dedicated plot.");
-    } else {
-        showError("Insufficient funds to purchase the Greenhouse.");
-    }
-  }, [gameState.cash]);
-
-  // --- Rendering Setup ---
   
   // Combine regular owned land and greenhouse plot for display
   const allOwnedPlots = [...gameState.ownedLand];
   if (gameState.greenhousePlot) {
       allOwnedPlots.push(gameState.greenhousePlot);
   }
-
-  useEffect(() => {
-    showSuccess("Welcome to the farm. Your Grandpa's legacy starts now. You have $100 to buy seeds.");
-  }, []);
-
 
   const SeasonIcon = getSeasonIcon(gameState.currentSeason);
 
@@ -460,20 +103,20 @@ const FarmManager: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Column 1: Map and Land Acquisition */}
+        {/* Column 1: Map and Livestock */}
         <div className="lg:col-span-2 space-y-8">
           <FarmPlots 
             plots={allOwnedPlots} 
             selectedCropId={selectedCropId}
             currentSeason={gameState.currentSeason}
-            onTileAction={handleTileAction}
+            onTileAction={(plotId, tileId, action) => handleTileAction(plotId, tileId, action, selectedCropId)}
           />
           
           <h2 className="text-2xl font-bold border-b pb-2">Livestock</h2>
           <AnimalPen ownedAnimals={gameState.ownedAnimals} />
         </div>
         
-        {/* Column 2: Shop, Inventory, and Construction */}
+        {/* Column 2: Shop and Construction */}
         <div className="lg:col-span-1 space-y-8">
           <FarmShop 
             cash={gameState.cash}
@@ -481,9 +124,8 @@ const FarmManager: React.FC = () => {
             ownedAnimals={gameState.ownedAnimals}
             selectedCropId={selectedCropId}
             onSelectCrop={setSelectedCropId}
-            onBuySeed={handleBuySeed}
+            onOpenPurchaseModal={handleOpenPurchaseModal}
             onSellItem={handleSellItem}
-            onBuyAnimal={handleBuyAnimal}
             onSellAnimal={handleSellAnimal}
           />
           
@@ -496,6 +138,15 @@ const FarmManager: React.FC = () => {
           />
         </div>
       </div>
+
+      {/* Purchase Modal */}
+      <PurchaseModal
+        isOpen={isModalOpen}
+        item={modalItem}
+        cash={gameState.cash}
+        onClose={handleClosePurchaseModal}
+        onConfirm={handleConfirmPurchase}
+      />
     </div>
   );
 };
