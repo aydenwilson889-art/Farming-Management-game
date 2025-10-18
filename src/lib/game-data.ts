@@ -1,4 +1,4 @@
-import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird } from 'lucide-react';
+import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet } from 'lucide-react';
 
 // --- Types ---
 
@@ -20,6 +20,7 @@ export interface PlotTile {
   cropId: string | null;
   growthStage: number; // 0 to 100 (percentage)
   isReadyToHarvest: boolean;
+  fertilizerId: string | null; // Tracks applied fertilizer
 }
 
 export interface LandPlot {
@@ -49,12 +50,22 @@ export interface Animal {
   daysUntilProduction: number; // Counter for production
 }
 
+export interface Fertilizer {
+  id: string;
+  name: string;
+  icon: LucideIcon;
+  cost: number;
+  coverage: number; // Number of tiles it affects
+  growthBoost: number; // Percentage boost applied instantly (e.g., 0.25 for 25%)
+}
+
 export interface GameState {
   cash: number;
   day: number;
   currentSeason: Season; // New property
   greenhousePlot: LandPlot | null; // The dedicated greenhouse plot
   inventory: Record<string, number>; // CropId/AnimalProductId -> Quantity
+  fertilizerInventory: Record<string, number>; // FertilizerId -> Quantity
   ownedLand: LandPlot[];
   ownedAnimals: Animal[];
 }
@@ -68,7 +79,35 @@ export const TAX_DAY_INTERVAL = DAYS_PER_SEASON; // Tax collected at the end of 
 export const GREENHOUSE_COST = 5000;
 export const GREENHOUSE_SIZE = 6; // 3x2 grid
 
+export const FERTILIZERS: Fertilizer[] = [
+  {
+    id: 'weak_fert',
+    name: 'Weak Fertilizer',
+    icon: Droplet,
+    cost: 10,
+    coverage: 1,
+    growthBoost: 0.15, // 15% instant growth boost
+  },
+  {
+    id: 'normal_fert',
+    name: 'Normal Fertilizer',
+    icon: Droplet,
+    cost: 30,
+    coverage: 4,
+    growthBoost: 0.20, // 20% instant growth boost
+  },
+  {
+    id: 'strong_fert',
+    name: 'Strong Fertilizer',
+    icon: Droplet,
+    cost: 60,
+    coverage: 6,
+    growthBoost: 0.30, // 30% instant growth boost
+  },
+];
+
 export const ANIMAL_PRODUCTS: AnimalProduct[] = [
+// ... (existing products)
   { id: 'egg', name: 'Egg', icon: Egg, basePrice: 4 },
   { id: 'milk', name: 'Milk', icon: Milk, basePrice: 8 },
   { id: 'pork', name: 'Pork', icon: PiggyBank, basePrice: 12 },
@@ -79,6 +118,7 @@ export const ANIMAL_PRODUCTS: AnimalProduct[] = [
 ];
 
 export const ANIMALS: Animal[] = [
+// ... (existing animals)
   {
     id: 'chicken',
     name: 'Chicken',
@@ -153,6 +193,7 @@ export const ANIMALS: Animal[] = [
 
 
 export const CROPS: Crop[] = [
+// ... (existing crops)
   {
     id: 'wheat',
     name: 'Wheat',
@@ -207,6 +248,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
       cropId: null,
       growthStage: 0,
       isReadyToHarvest: false,
+      fertilizerId: null, // Initialize new property
     })),
   },
   {
@@ -220,6 +262,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
       cropId: null,
       growthStage: 0,
       isReadyToHarvest: false,
+      fertilizerId: null, // Initialize new property
     })),
   },
   {
@@ -233,6 +276,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
       cropId: null,
       growthStage: 0,
       isReadyToHarvest: false,
+      fertilizerId: null, // Initialize new property
     })),
   },
   {
@@ -246,6 +290,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
       cropId: null,
       growthStage: 0,
       isReadyToHarvest: false,
+      fertilizerId: null, // Initialize new property
     })),
   },
 ];
@@ -261,6 +306,7 @@ export const INITIAL_GREENHOUSE_PLOT: LandPlot = {
       cropId: null,
       growthStage: 0,
       isReadyToHarvest: false,
+      fertilizerId: null, // Initialize new property
     })),
 };
 
@@ -270,6 +316,7 @@ export const INITIAL_GAME_STATE: GameState = {
   currentSeason: 'Spring',
   greenhousePlot: null, // Starts unowned
   inventory: {},
+  fertilizerInventory: {}, // New inventory for fertilizer
   ownedLand: INITIAL_LAND_PLOTS.filter(p => p.isOwned),
   ownedAnimals: [],
 };
@@ -282,4 +329,8 @@ export const getCropById = (id: string): Crop | undefined => {
 
 export const getAnimalProductById = (id: string): AnimalProduct | undefined => {
   return ANIMAL_PRODUCTS.find(p => p.id === id);
+};
+
+export const getFertilizerById = (id: string): Fertilizer | undefined => {
+  return FERTILIZERS.find(f => f.id === id);
 };

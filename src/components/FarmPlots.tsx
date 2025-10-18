@@ -1,20 +1,22 @@
 "use client";
 
 import React from 'react';
-import { LandPlot, PlotTile, Crop, getCropById, Season } from '@/lib/game-data';
+import { LandPlot, PlotTile, Crop, getCropById, Season, getFertilizerById } from '@/lib/game-data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { Leaf, LandPlot as LandPlotIcon, Snowflake, Factory, Zap } from 'lucide-react';
+import { Leaf, LandPlot as LandPlotIcon, Snowflake, Factory, Zap, Droplet, Check } from 'lucide-react';
 
 interface FarmPlotsProps {
   plots: LandPlot[];
   selectedCropId: string | null;
+  selectedFertilizerId: string | null; // New prop
   currentSeason: Season;
   onTileAction: (plotId: string, tileId: string, action: 'plant' | 'harvest') => void;
+  onApplyFertilizer: (plotId: string, tileId: string, fertilizerId: string) => void; // New handler
 }
 
-const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSeason, onTileAction }) => {
+const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, selectedFertilizerId, currentSeason, onTileAction, onApplyFertilizer }) => {
   
   if (plots.length === 0) {
     return (
@@ -30,6 +32,8 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSea
   }
   
   const isGreenhouseBoosted = currentSeason === 'Spring' || currentSeason === 'Summer';
+  const isFertilizerMode = !!selectedFertilizerId;
+  const selectedFertilizer = isFertilizerMode ? getFertilizerById(selectedFertilizerId) : null;
 
   const renderTile = (plotId: string, tile: PlotTile, isGreenhouse: boolean) => {
     const crop = tile.cropId ? getCropById(tile.cropId) : null;
@@ -37,7 +41,7 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSea
 
     let tileClasses = "w-12 h-12 border flex items-center justify-center text-xs transition-all duration-300 relative overflow-hidden rounded-sm";
     let content = <LandPlotIcon className="w-6 h-6 text-gray-400" />;
-    let action: 'plant' | 'harvest' | null = null;
+    let action: 'plant' | 'harvest' | 'fertilize' | null = null;
     let tooltip = "Empty Plot";
 
     const isWinter = currentSeason === 'Winter';
@@ -72,6 +76,7 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSea
           />
           <CropIcon className="w-6 h-6 text-green-900 z-10" />
           {isOptimalSeason && <Zap className="absolute top-0 right-0 w-3 h-3 text-yellow-400 z-20" title="Optimal Growth" />}
+          {tile.fertilizerId && <Droplet className="absolute bottom-0 right-0 w-3 h-3 text-blue-600 z-20" title="Fertilized" />}
         </>
       );
       action = null;
@@ -83,11 +88,22 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSea
         content = <Snowflake className="w-6 h-6 text-blue-500 z-10" />;
         tooltip = `${crop.name} is frozen! Growth stopped.`;
       }
+      
+      // Check for fertilizer application mode
+      if (isFertilizerMode && !tile.fertilizerId) {
+        tileClasses = cn(tileClasses, "cursor-pointer ring-2 ring-blue-500/50 hover:ring-blue-500");
+        action = 'fertilize';
+        tooltip = `Click to apply ${selectedFertilizer?.name} here.`;
+      } else if (isFertilizerMode && tile.fertilizerId) {
+        tileClasses = cn(tileClasses, "cursor-not-allowed ring-2 ring-gray-500/50");
+        action = null;
+        tooltip = `Already fertilized.`;
+      }
 
     } else if (selectedCropId) {
       // Empty, ready to plant
       if (isPlantingAllowed) {
-        tileClasses = cn(tileClasses, "bg-gray-200 hover:bg-green-300 border-gray-400 cursor-pointer");
+        tileClasses = cn(tileClasses, "bg-gray-200 hover:bg-green-300 border-gray-400 cursor-pointer ring-2 ring-green-500/50");
         content = <Leaf className="w-6 h-6 text-green-600" />;
         action = 'plant';
         tooltip = `Click to plant ${selectedCrop?.name}.`;
@@ -105,8 +121,10 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSea
     }
 
     const handleClick = () => {
-      if (action) {
+      if (action === 'plant' || action === 'harvest') {
         onTileAction(plotId, tile.id, action);
+      } else if (action === 'fertilize' && selectedFertilizerId) {
+        onApplyFertilizer(plotId, tile.id, selectedFertilizerId);
       }
     };
 

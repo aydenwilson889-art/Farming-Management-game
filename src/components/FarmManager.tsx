@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { LandPlot, Crop, Animal, SEASONS, getCropById } from '@/lib/game-data';
-import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud, ChevronDown } from 'lucide-react';
+import { LandPlot, Crop, Animal, SEASONS, getCropById, Fertilizer, getFertilizerById } from '@/lib/game-data';
+import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud, ChevronDown, Droplet } from 'lucide-react';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import FarmConstruction from './FarmConstruction';
 import PurchaseModal from './PurchaseModal';
 import AdminPanel from './AdminPanel';
 import { useFarmGame, PurchaseDetails } from '@/hooks/use-farm-game';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 
 const FarmManager: React.FC = () => {
@@ -26,18 +26,20 @@ const FarmManager: React.FC = () => {
     handleTileAction,
     handleBuyLand,
     handleBuyGreenhouse,
+    handleApplyFertilizer, // New handler
     adjustCash,
     adjustDay,
-    adjustSeason, // <-- New handler
+    adjustSeason,
   } = useFarmGame();
 
   const [selectedCropId, setSelectedCropId] = useState<string | null>(null);
-  const [modalItem, setModalItem] = useState<Crop | Animal | null>(null);
+  const [selectedFertilizerId, setSelectedFertilizerId] = useState<string | null>(null); // New state for fertilizer
+  const [modalItem, setModalItem] = useState<Crop | Animal | Fertilizer | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const isModalOpen = !!modalItem;
 
   // --- Modal Handlers ---
-  const handleOpenPurchaseModal = useCallback((item: Crop | Animal) => {
+  const handleOpenPurchaseModal = useCallback((item: Crop | Animal | Fertilizer) => {
     setModalItem(item);
   }, []);
 
@@ -50,9 +52,36 @@ const FarmManager: React.FC = () => {
     if (success && details.type === 'seed') {
         // Automatically select the purchased seed for planting if successful
         setSelectedCropId(details.item.id);
+        setSelectedFertilizerId(null); // Deselect fertilizer
         showSuccess(`Selected ${details.item.name} for planting.`);
     }
+    if (success && details.type === 'fertilizer') {
+        // Automatically select the purchased fertilizer for application
+        setSelectedFertilizerId(details.item.id);
+        setSelectedCropId(null); // Deselect crop
+        showSuccess(`Selected ${details.item.name} for application.`);
+    }
   }, [executePurchase]);
+
+  // --- Fertilizer Selection Handler ---
+  const handleSelectFertilizer = useCallback((fertId: string | null) => {
+    setSelectedFertilizerId(fertId);
+    if (fertId) {
+        setSelectedCropId(null); // Deselect crop when selecting fertilizer
+        const fert = getFertilizerById(fertId);
+        if (fert) {
+            showSuccess(`Selected ${fert.name} for application.`);
+        }
+    }
+  }, []);
+
+  // --- Crop Selection Handler (Modified to deselect fertilizer) ---
+  const handleSelectCrop = useCallback((cropId: string | null) => {
+    setSelectedCropId(cropId);
+    if (cropId) {
+        setSelectedFertilizerId(null); // Deselect fertilizer when selecting crop
+    }
+  }, []);
 
 
   // --- Utility ---
@@ -109,6 +138,29 @@ const FarmManager: React.FC = () => {
         </CardHeader>
       </Card>
 
+      {/* Current Action Indicator */}
+      {(selectedCropId || selectedFertilizerId) && (
+        <Card className="p-3 border-2 border-dashed border-blue-500 bg-blue-50 dark:bg-blue-900/30">
+            <div className="flex items-center justify-center space-x-3 text-blue-700 dark:text-blue-300 font-medium">
+                {selectedCropId && (
+                    <>
+                        <Leaf className="w-5 h-5" />
+                        <span>Action: Planting {getCropById(selectedCropId)?.name} Seeds</span>
+                    </>
+                )}
+                {selectedFertilizerId && (
+                    <>
+                        <Droplet className="w-5 h-5" />
+                        <span>Action: Applying {getFertilizerById(selectedFertilizerId)?.name}</span>
+                    </>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => { setSelectedCropId(null); setSelectedFertilizerId(null); }} className="text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800">
+                    Cancel
+                </Button>
+            </div>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Column 1: Map and Livestock */}
@@ -116,8 +168,10 @@ const FarmManager: React.FC = () => {
           <FarmPlots 
             plots={allOwnedPlots} 
             selectedCropId={selectedCropId}
+            selectedFertilizerId={selectedFertilizerId} // Pass selected fertilizer
             currentSeason={gameState.currentSeason}
             onTileAction={(plotId, tileId, action) => handleTileAction(plotId, tileId, action, selectedCropId)}
+            onApplyFertilizer={handleApplyFertilizer} // Pass fertilizer handler
           />
           
           <h2 className="text-2xl font-bold border-b pb-2">Livestock</h2>
@@ -130,9 +184,11 @@ const FarmManager: React.FC = () => {
           <FarmShop 
             cash={gameState.cash}
             inventory={gameState.inventory}
+            fertilizerInventory={gameState.fertilizerInventory} // Pass fertilizer inventory
             ownedAnimals={gameState.ownedAnimals}
             selectedCropId={selectedCropId}
-            onSelectCrop={setSelectedCropId}
+            onSelectCrop={handleSelectCrop} // Use new handler
+            onSelectFertilizer={handleSelectFertilizer} // New handler for selecting fertilizer
             onOpenPurchaseModal={handleOpenPurchaseModal}
             onSellItem={handleSellItem}
             onSellAnimal={handleSellAnimal}

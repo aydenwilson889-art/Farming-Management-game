@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, getAnimalProductById } from '@/lib/game-data';
-import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf, Info } from 'lucide-react';
+import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, getAnimalProductById, FERTILIZERS, Fertilizer } from '@/lib/game-data';
+import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf, Info, Droplet } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import ItemDetailsDialog from './ItemDetailsDialog';
@@ -13,17 +13,20 @@ import ItemDetailsDialog from './ItemDetailsDialog';
 interface FarmShopProps {
   cash: number;
   inventory: Record<string, number>;
+  fertilizerInventory: Record<string, number>;
   ownedAnimals: Animal[];
   selectedCropId: string | null;
+  selectedFertilizerId: string | null; // New prop
   onSelectCrop: (cropId: string | null) => void;
-  onOpenPurchaseModal: (item: Crop | Animal) => void; // New handler to open modal
+  onSelectFertilizer: (fertId: string | null) => void; // New prop
+  onOpenPurchaseModal: (item: Crop | Animal | Fertilizer) => void; 
   onSellItem: (itemId: string, quantity: number) => void;
   onSellAnimal: (animalId: string, quantity: number) => void; 
 }
 
-const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, selectedCropId, onSelectCrop, onOpenPurchaseModal, onSellItem, onSellAnimal }) => {
+const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, fertilizerInventory, ownedAnimals, selectedCropId, selectedFertilizerId, onSelectCrop, onSelectFertilizer, onOpenPurchaseModal, onSellItem, onSellAnimal }) => {
   
-  const [detailsItem, setDetailsItem] = useState<Crop | Animal | null>(null);
+  const [detailsItem, setDetailsItem] = useState<Crop | Animal | Fertilizer | null>(null);
 
   // Filter inventory into crops and animal products
   const inventoryItems = Object.entries(inventory).map(([itemId, quantity]) => {
@@ -48,7 +51,7 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
 
   const totalOwnedAnimals = ownedAnimals.reduce((sum, a) => sum + a.quantity, 0);
 
-  const handleOpenDetails = (item: Crop | Animal) => {
+  const handleOpenDetails = (item: Crop | Animal | Fertilizer) => {
     setDetailsItem(item);
   };
 
@@ -67,8 +70,8 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
             <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
               <TabsTrigger value="buy-seeds">Seeds</TabsTrigger>
               <TabsTrigger value="buy-animals">Animals</TabsTrigger>
+              <TabsTrigger value="buy-fertilizer">Fertilizer</TabsTrigger>
               <TabsTrigger value="sell-harvest">Sell ({inventoryItems.length})</TabsTrigger>
-              <TabsTrigger value="sell-animals">Sell Livestock ({totalOwnedAnimals})</TabsTrigger>
             </TabsList>
             
             {/* Buy Seeds Tab */}
@@ -168,6 +171,61 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
               })}
             </TabsContent>
             
+            {/* Buy Fertilizer Tab */}
+            <TabsContent value="buy-fertilizer" className="mt-4 space-y-3">
+              {FERTILIZERS.map((fert) => {
+                const canAfford = cash >= fert.cost;
+                const isSelected = selectedFertilizerId === fert.id;
+                const quantityOwned = fertilizerInventory[fert.id] || 0;
+                
+                return (
+                  <div 
+                    key={fert.id} 
+                    className={cn(
+                      "flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 border rounded-lg transition-colors space-y-2 sm:space-y-0",
+                      isSelected ? "bg-blue-100 border-blue-500 dark:bg-blue-900/30" : "hover:bg-muted/50"
+                    )}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Droplet className="w-6 h-6 text-blue-500" />
+                      <div>
+                        <h4 className="font-semibold">{fert.name}</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Cost: ${fert.cost} | Coverage: {fert.coverage} tiles | Owned: {quantityOwned}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => handleOpenDetails(fert)}
+                        className="h-8 text-xs flex items-center space-x-1"
+                      >
+                        <Info className="w-3 h-3" />
+                        <span>Details</span>
+                      </Button>
+                      <Button
+                        variant={isSelected ? "default" : "outline"}
+                        onClick={() => onSelectFertilizer(isSelected ? null : fert.id)}
+                        disabled={quantityOwned === 0}
+                        className="h-8 text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400"
+                      >
+                        {isSelected ? "Selected" : "Use"}
+                      </Button>
+                      <Button
+                        onClick={() => onOpenPurchaseModal(fert)}
+                        disabled={!canAfford}
+                        className="h-8 flex items-center space-x-1 text-xs bg-green-600 hover:bg-green-700"
+                      >
+                        <DollarSign className="w-3 h-3" />
+                        <span>Buy Online</span>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </TabsContent>
+
             {/* Sell Harvest Tab */}
             <TabsContent value="sell-harvest" className="mt-4 space-y-3">
               {inventoryItems.length === 0 ? (

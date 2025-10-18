@@ -1,15 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { 
   INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS, Animal, ANIMALS, getAnimalProductById, 
-  SEASONS, DAYS_PER_SEASON, TAX_RATE, INITIAL_GREENHOUSE_PLOT, GREENHOUSE_COST, Season 
+  SEASONS, DAYS_PER_SEASON, TAX_RATE, INITIAL_GREENHOUSE_PLOT, GREENHOUSE_COST, Season, Fertilizer, getFertilizerById 
 } from '@/lib/game-data';
 import { showSuccess, showError } from '@/utils/toast';
 
 const BULK_DISCOUNT = 0.05; // 5% discount
 
 export interface PurchaseDetails {
-    type: 'seed' | 'animal';
-    item: Crop | Animal;
+    type: 'seed' | 'animal' | 'fertilizer';
+    item: Crop | Animal | Fertilizer;
     quantity: number;
     costPerUnit: number;
     discountRate: number;
@@ -18,9 +18,20 @@ export interface PurchaseDetails {
     taxAmount: number;
 }
 
-export const calculatePurchaseDetails = (item: Crop | Animal, quantity: number): PurchaseDetails => {
-    const isSeed = 'seedCost' in item;
-    const costPerUnit = isSeed ? (item as Crop).seedCost : (item as Animal).purchaseCost;
+export const calculatePurchaseDetails = (item: Crop | Animal | Fertilizer, quantity: number): PurchaseDetails => {
+    let costPerUnit: number;
+    let type: 'seed' | 'animal' | 'fertilizer';
+
+    if ('seedCost' in item) {
+        costPerUnit = (item as Crop).seedCost;
+        type = 'seed';
+    } else if ('purchaseCost' in item) {
+        costPerUnit = (item as Animal).purchaseCost;
+        type = 'animal';
+    } else {
+        costPerUnit = (item as Fertilizer).cost;
+        type = 'fertilizer';
+    }
     
     // Apply bulk discount if quantity > 1
     const discountRate = quantity > 1 ? BULK_DISCOUNT : 0;
@@ -34,7 +45,7 @@ export const calculatePurchaseDetails = (item: Crop | Animal, quantity: number):
     const totalCost = discountedSubtotal + taxAmount;
 
     return {
-        type: isSeed ? 'seed' : 'animal',
+        type: type,
         item: item,
         quantity: quantity,
         costPerUnit: costPerUnit,
@@ -197,6 +208,7 @@ export function useFarmGame() {
     setGameState(prev => {
         let newCash = prev.cash - details.totalCost;
         let newInventory = { ...prev.inventory };
+        let newFertilizerInventory = { ...prev.fertilizerInventory };
         let newOwnedAnimals = [...prev.ownedAnimals];
 
         if (details.type === 'seed') {
@@ -215,17 +227,159 @@ export function useFarmGame() {
                 newOwnedAnimals = [...prev.ownedAnimals, { ...animal, quantity: details.quantity, daysUntilProduction: animal.productionTime }];
             }
             showSuccess(`Purchased ${details.quantity} ${animal.name}(s) for $${details.totalCost}. Tax paid: $${details.taxAmount}.`);
+        } else if (details.type === 'fertilizer') {
+            const fertilizer = details.item as Fertilizer;
+            newFertilizerInventory[fertilizer.id] = (newFertilizerInventory[fertilizer.id] || 0) + details.quantity;
+            showSuccess(`Purchased ${details.quantity} unit(s) of ${fertilizer.name} for $${details.totalCost}. Tax paid: $${details.taxAmount}.`);
         }
 
         return {
             ...prev,
             cash: newCash,
             inventory: newInventory,
+            fertilizerInventory: newFertilizerInventory,
             ownedAnimals: newOwnedAnimals,
         };
     });
     return true;
   }, [gameState.cash]);
+
+
+  // --- Fertilizer Handler ---
+
+  const handleApplyFertilizer = useCallback((plotId: string, tileId: string, fertilizerId: string) => {
+    const fertilizer = getFertilizerById(fertilizerId);
+    if (!fertilizer) {
+        showError("Invalid fertilizer type.");
+        return;
+    }
+
+    setGameState(prev => {
+        if ((prev.fertilizerInventory[fertilizerId] || 0) < 1) {
+            showError(`You need to buy ${fertilizer.name} first!`);
+            return prev;
+        }
+
+        let targetPlot: LandPlot | null = null;
+        let plotIndex = -1;
+        
+        if (plotId === 'greenhouse' && prev.greenhousePlot) {
+            targetPlot = prev.greenhousePlot;
+        } else {
+            plotIndex = prev.ownedLand.findIndex(p => p.id === plotId);
+            if (plotIndex !== -1) {
+                targetPlot = prev.ownedLand[plotIndex];
+            }
+        }
+
+        if (!targetPlot) return prev;
+
+        const tileIndex = targetPlot.tiles.findIndex(t => t.id === tileId);
+        if (tileIndex === -1) return prev;
+        
+        const tiles = [...targetPlot.tiles];
+        const tile = tiles[tileIndex];
+
+        if (!tile.cropId) {
+            showError("Fertilizer can only be applied to planted crops.");
+            return prev;
+        }
+        if (tile.fertilizerId) {
+            showError("This tile already has fertilizer applied.");
+            return prev;
+        }
+        
+        // 1. Calculate affected tiles (simple square coverage centered on tileId)
+        const plotSize = Math.sqrt(targetPlot.size);
+        const centerRow = Math.floor(tileIndex / plotSize);
+        const centerCol = tileIndex % plotSize;
+        
+        const affectedIndices: number[] = [];
+        
+        // Weak (1 tile)
+        if (fertilizer.coverage === 1) {
+            affectedIndices.push(tileIndex);
+        } 
+        // Normal (4 tiles, 2x2)
+        else if (fertilizer.coverage === 4) {
+            // Try to center 2x2 block on the tile, prioritizing top-left corner
+            const startRow = Math.max(0, Math.min(plotSize - 2, centerRow));
+            const startCol = Math.max(0, Math.min(plotSize - 2, centerCol));
+            
+            for (let r = startRow; r < startRow + 2; r++) {
+                for (let c = startCol; c < startCol + 2; c++) {
+                    affectedIndices.push(r * plotSize + c);
+                }
+            }
+        }
+        // Strong (6 tiles, 3x2 or 2x3, prioritizing 3x2 horizontal spread)
+        else if (fertilizer.coverage === 6) {
+            // Try to center 3x2 block on the tile, prioritizing top-left corner
+            const startRow = Math.max(0, Math.min(plotSize - 2, centerRow));
+            const startCol = Math.max(0, Math.min(plotSize - 3, centerCol));
+            
+            for (let r = startRow; r < startRow + 2; r++) {
+                for (let c = startCol; c < startCol + 3; c++) {
+                    affectedIndices.push(r * plotSize + c);
+                }
+            }
+        }
+        
+        let tilesFertilizedCount = 0;
+        
+        // 2. Apply boost and mark tiles as fertilized
+        const updatedTiles = tiles.map((t, index) => {
+            if (affectedIndices.includes(index) && t.cropId && !t.fertilizerId && !t.isReadyToHarvest) {
+                tilesFertilizedCount++;
+                
+                // Apply instant growth boost
+                let newGrowthStage = t.growthStage + (fertilizer.growthBoost * 100);
+                let isReadyToHarvest = false;
+                if (newGrowthStage >= 100) {
+                    newGrowthStage = 100;
+                    isReadyToHarvest = true;
+                }
+                
+                return {
+                    ...t,
+                    growthStage: newGrowthStage,
+                    isReadyToHarvest: isReadyToHarvest,
+                    fertilizerId: fertilizerId,
+                };
+            }
+            return t;
+        });
+
+        if (tilesFertilizedCount === 0) {
+            showError("Fertilizer could not be applied to any valid, unfertilized crops in the area.");
+            return prev;
+        }
+
+        // 3. Consume fertilizer and update plot
+        const newFertilizerInventory = { ...prev.fertilizerInventory, [fertilizerId]: prev.fertilizerInventory[fertilizerId] - 1 };
+        if (newFertilizerInventory[fertilizerId] === 0) delete newFertilizerInventory[fertilizerId];
+
+        const updatedPlot = { ...targetPlot, tiles: updatedTiles };
+
+        let newOwnedLand = [...prev.ownedLand];
+        let newGreenhousePlot = prev.greenhousePlot;
+
+        if (targetPlot.id === 'greenhouse') {
+            newGreenhousePlot = updatedPlot;
+        } else {
+            newOwnedLand[plotIndex] = updatedPlot;
+        }
+
+        showSuccess(`Applied ${fertilizer.name}! Boosted ${tilesFertilizedCount} crop(s).`);
+
+        return { 
+            ...prev, 
+            ownedLand: newOwnedLand, 
+            greenhousePlot: newGreenhousePlot,
+            fertilizerInventory: newFertilizerInventory,
+        };
+    });
+  }, []);
 
 
   // --- Other Handlers (Extracted from FarmManager) ---
@@ -338,6 +492,7 @@ export function useFarmGame() {
           tile.cropId = selectedCropId;
           tile.growthStage = 0;
           tile.isReadyToHarvest = false;
+          tile.fertilizerId = null; // Reset fertilizer status on planting
           
           newInventory[selectedCropId] = seedCount - 1;
           if (newInventory[selectedCropId] === 0) delete newInventory[selectedCropId];
@@ -359,6 +514,7 @@ export function useFarmGame() {
         tile.cropId = null;
         tile.growthStage = 0;
         tile.isReadyToHarvest = false;
+        tile.fertilizerId = null; // Clear fertilizer status on harvest
         
         newInventory = { 
           ...prev.inventory, 
@@ -428,6 +584,7 @@ export function useFarmGame() {
     handleTileAction,
     handleBuyLand,
     handleBuyGreenhouse,
+    handleApplyFertilizer,
     adjustCash,
     adjustDay,
     adjustSeason,

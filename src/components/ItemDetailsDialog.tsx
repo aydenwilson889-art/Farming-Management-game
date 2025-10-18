@@ -2,13 +2,13 @@
 
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Crop, Animal, SEASONS } from '@/lib/game-data';
-import { Clock, Leaf, DollarSign, Package, PawPrint, Zap } from 'lucide-react';
+import { Crop, Animal, Fertilizer, SEASONS } from '@/lib/game-data';
+import { Clock, Leaf, DollarSign, Package, PawPrint, Zap, Droplet } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface ItemDetailsDialogProps {
   isOpen: boolean;
-  item: Crop | Animal | null;
+  item: Crop | Animal | Fertilizer | null;
   onClose: () => void;
 }
 
@@ -16,7 +16,10 @@ const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({ isOpen, item, onC
   if (!item) return null;
 
   const isCrop = 'seedCost' in item;
-  const title = isCrop ? `${item.name} Details` : `${item.name} Details`;
+  const isAnimal = 'purchaseCost' in item;
+  const isFertilizer = 'cost' in item;
+  
+  const title = isCrop ? `${item.name} Details` : isAnimal ? `${item.name} Details` : `${item.name} Details`;
   const Icon = item.icon;
 
   const renderCropDetails = (crop: Crop) => (
@@ -70,6 +73,26 @@ const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({ isOpen, item, onC
       </p>
     </div>
   );
+  
+  const renderFertilizerDetails = (fert: Fertilizer) => (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center">
+        <span className="font-medium flex items-center"><DollarSign className="w-4 h-4 mr-2 text-green-600" /> Unit Cost:</span>
+        <Badge variant="secondary">${fert.cost}</Badge>
+      </div>
+      <div className="flex justify-between items-center">
+        <span className="font-medium flex items-center"><Package className="w-4 h-4 mr-2 text-purple-600" /> Coverage:</span>
+        <Badge variant="secondary">{fert.coverage} tiles</Badge>
+      </div>
+      <div className="flex justify-between items-center">
+        <span className="font-medium flex items-center"><Zap className="w-4 h-4 mr-2 text-orange-600" /> Instant Growth Boost:</span>
+        <Badge variant="secondary">{(fert.growthBoost * 100).toFixed(0)}%</Badge>
+      </div>
+      <p className="text-sm text-muted-foreground pt-2">
+        Fertilizer is consumed upon application and instantly boosts the growth stage of crops within its coverage area. Can only be applied once per crop cycle.
+      </p>
+    </div>
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -85,7 +108,7 @@ const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({ isOpen, item, onC
         </DialogHeader>
         
         <div className="py-4">
-          {isCrop ? renderCropDetails(item as Crop) : renderAnimalDetails(item as Animal)}
+          {isCrop ? renderCropDetails(item as Crop) : isAnimal ? renderAnimalDetails(item as Animal) : renderFertilizerDetails(item as Fertilizer)}
         </div>
       </DialogContent>
     </Dialog>
