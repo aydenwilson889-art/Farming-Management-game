@@ -3,19 +3,19 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LandPlot as LandPlotIcon, DollarSign, Leaf, CheckCircle } from 'lucide-react';
-import { LandPlot, GREENHOUSE_COST } from '@/lib/game-data';
+import { LandPlot as LandPlotIcon, DollarSign } from 'lucide-react';
+import { LandPlot } from '@/lib/game-data';
 import Greenhouse from './Greenhouse';
 
 interface FarmConstructionProps {
   cash: number;
   availableLand: LandPlot[];
-  hasGreenhouse: boolean;
+  isGreenhouseOwned: boolean;
   onBuyLand: (plot: LandPlot) => void;
   onBuyGreenhouse: () => void;
 }
 
-const FarmConstruction: React.FC<FarmConstructionProps> = ({ cash, availableLand, hasGreenhouse, onBuyLand, onBuyGreenhouse }) => {
+const FarmConstruction: React.FC<FarmConstructionProps> = ({ cash, availableLand, isGreenhouseOwned, onBuyLand, onBuyGreenhouse }) => {
   
   const unownedLand = availableLand.filter(p => !p.isOwned);
 
@@ -34,7 +34,7 @@ const FarmConstruction: React.FC<FarmConstructionProps> = ({ cash, availableLand
         <div className="space-y-2">
           <h3 className="text-xl font-semibold border-b pb-1">Infrastructure</h3>
           <Greenhouse 
-            hasGreenhouse={hasGreenhouse}
+            isOwned={isGreenhouseOwned}
             cash={cash}
             onBuyGreenhouse={onBuyGreenhouse}
           />

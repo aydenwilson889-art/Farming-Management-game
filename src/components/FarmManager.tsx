@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS, Animal, getAnimalProductById, SEASONS, DAYS_PER_SEASON, TAX_RATE, TAX_DAY_INTERVAL, GREENHOUSE_COST } from '@/lib/game-data';
+import { INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS, Animal, getAnimalProductById, SEASONS, DAYS_PER_SEASON, TAX_RATE, INITIAL_GREENHOUSE_PLOT, GREENHOUSE_COST } from '@/lib/game-data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud } from 'lucide-react';
-import FarmMap from './FarmMap';
+import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud, Factory } from 'lucide-react';
+import FarmPlots from './FarmPlots'; // Renamed from FarmMap
 import FarmShop from './FarmShop';
 import AnimalPen from './AnimalPen';
-import FarmConstruction from './FarmConstruction'; // Import the new component
+import FarmConstruction from './FarmConstruction';
 import { showSuccess, showError } from '@/utils/toast';
 
 const FarmManager: React.FC = () => {
@@ -52,41 +52,47 @@ const FarmManager: React.FC = () => {
         
         // 3. Advance Crop Growth Stages
         const isWinter = newSeason === 'Winter';
-        const canGrowInWinter = prev.hasGreenhouse;
 
-        const newOwnedLand = prev.ownedLand.map(plot => ({
-          ...plot,
-          tiles: plot.tiles.map(tile => {
-            if (tile.cropId && !tile.isReadyToHarvest) {
-              const crop = getCropById(tile.cropId);
-              if (crop) {
-                
-                // Check for seasonal growth restriction
-                if (isWinter && !canGrowInWinter) {
-                    // Crop growth stops in winter without a greenhouse
+        // Function to process growth for a single plot
+        const processPlotGrowth = (plot: LandPlot): LandPlot => {
+            const isGreenhouse = plot.id === 'greenhouse';
+            
+            return {
+                ...plot,
+                tiles: plot.tiles.map(tile => {
+                    if (tile.cropId && !tile.isReadyToHarvest) {
+                        const crop = getCropById(tile.cropId);
+                        if (crop) {
+                            
+                            // Regular land stops growth in winter
+                            if (isWinter && !isGreenhouse) {
+                                return tile;
+                            }
+
+                            // Calculate growth increment based on 100% / growthTime
+                            let growthIncrement = (1 / crop.growthTime) * 100;
+                            
+                            // Apply optimal season bonus (e.g., 20% faster growth)
+                            if (crop.optimalSeason === newSeason) {
+                                growthIncrement *= 1.2;
+                            }
+                            
+                            let newGrowthStage = tile.growthStage + growthIncrement;
+                            
+                            if (newGrowthStage >= 100) {
+                                newGrowthStage = 100;
+                                return { ...tile, growthStage: newGrowthStage, isReadyToHarvest: true };
+                            }
+                            return { ...tile, growthStage: newGrowthStage };
+                        }
+                    }
                     return tile;
-                }
+                })
+            };
+        };
 
-                // Calculate growth increment based on 100% / growthTime
-                let growthIncrement = (1 / crop.growthTime) * 100;
-                
-                // Apply optimal season bonus (e.g., 20% faster growth)
-                if (crop.optimalSeason === newSeason) {
-                    growthIncrement *= 1.2;
-                }
-                
-                let newGrowthStage = tile.growthStage + growthIncrement;
-                
-                if (newGrowthStage >= 100) {
-                  newGrowthStage = 100;
-                  return { ...tile, growthStage: newGrowthStage, isReadyToHarvest: true };
-                }
-                return { ...tile, growthStage: newGrowthStage };
-              }
-            }
-            return tile;
-          })
-        }));
+        const newOwnedLand = prev.ownedLand.map(processPlotGrowth);
+        const newGreenhousePlot = prev.greenhousePlot ? processPlotGrowth(prev.greenhousePlot) : null;
         
         // 4. Advance Animal Production
         let newInventory = { ...prev.inventory };
@@ -114,6 +120,7 @@ const FarmManager: React.FC = () => {
           currentSeason: newSeason,
           cash: newCash,
           ownedLand: newOwnedLand,
+          greenhousePlot: newGreenhousePlot,
           ownedAnimals: newOwnedAnimals,
           inventory: newInventory,
         };
@@ -205,24 +212,41 @@ const FarmManager: React.FC = () => {
 
   const handleTileAction = useCallback((plotId: string, tileId: string, action: 'plant' | 'harvest') => {
     setGameState(prev => {
-      const plotIndex = prev.ownedLand.findIndex(p => p.id === plotId);
-      if (plotIndex === -1) return prev;
+      
+      let targetPlot: LandPlot | null = null;
+      let plotIndex = -1;
+      
+      if (plotId === 'greenhouse' && prev.greenhousePlot) {
+          targetPlot = prev.greenhousePlot;
+      } else {
+          plotIndex = prev.ownedLand.findIndex(p => p.id === plotId);
+          if (plotIndex !== -1) {
+              targetPlot = prev.ownedLand[plotIndex];
+          }
+      }
 
-      const newOwnedLand = [...prev.ownedLand];
-      const plot = { ...newOwnedLand[plotIndex] };
-      const tileIndex = plot.tiles.findIndex(t => t.id === tileId);
+      if (!targetPlot) return prev;
+
+      const isGreenhouse = targetPlot.id === 'greenhouse';
+      const isWinter = prev.currentSeason === 'Winter';
+      
+      const tileIndex = targetPlot.tiles.findIndex(t => t.id === tileId);
       if (tileIndex === -1) return prev;
       
-      const tile = { ...plot.tiles[tileIndex] };
-      const isWinter = prev.currentSeason === 'Winter';
-      const canPlantInWinter = prev.hasGreenhouse;
+      const tile = { ...targetPlot.tiles[tileIndex] };
+      
+      let newInventory = { ...prev.inventory };
+      let newOwnedLand = [...prev.ownedLand];
+      let newGreenhousePlot = prev.greenhousePlot;
+
 
       if (action === 'plant' && selectedCropId) {
         const crop = getCropById(selectedCropId);
         if (!crop) return prev;
         
-        if (isWinter && !canPlantInWinter) {
-            showError("Cannot plant during Winter without a Greenhouse!");
+        // Planting restriction check: Only allow planting in winter if it's the greenhouse
+        if (isWinter && !isGreenhouse) {
+            showError("Cannot plant during Winter outside of the Greenhouse!");
             return prev;
         }
 
@@ -234,16 +258,12 @@ const FarmManager: React.FC = () => {
           tile.growthStage = 0;
           tile.isReadyToHarvest = false;
           
-          plot.tiles[tileIndex] = tile;
-          newOwnedLand[plotIndex] = plot;
-          
           // Consume seed from inventory
-          const newInventory = { ...prev.inventory, [selectedCropId]: seedCount - 1 };
+          newInventory[selectedCropId] = seedCount - 1;
           if (newInventory[selectedCropId] === 0) delete newInventory[selectedCropId];
           
-          showSuccess(`Planted ${crop.name} seed.`);
+          showSuccess(`Planted ${crop.name} seed in ${targetPlot.name}.`);
           
-          return { ...prev, ownedLand: newOwnedLand, inventory: newInventory };
         } else {
           showError(`You need to buy ${crop.name} seeds first!`);
           return prev;
@@ -262,23 +282,32 @@ const FarmManager: React.FC = () => {
         tile.growthStage = 0;
         tile.isReadyToHarvest = false;
         
-        plot.tiles[tileIndex] = tile;
-        newOwnedLand[plotIndex] = plot;
-        
         // Add to inventory
-        const newInventory = { 
+        newInventory = { 
           ...prev.inventory, 
           [crop.id]: (prev.inventory[crop.id] || 0) + yieldAmount 
         };
         
-        showSuccess(`Harvested ${yieldAmount} units of ${crop.name}!`);
-        
-        return { ...prev, ownedLand: newOwnedLand, inventory: newInventory };
+        showSuccess(`Harvested ${yieldAmount} units of ${crop.name} from ${targetPlot.name}!`);
+      }
+      
+      // Update the plot structure
+      const updatedPlot = { ...targetPlot, tiles: targetPlot.tiles.map((t, i) => i === tileIndex ? tile : t) };
+
+      if (isGreenhouse) {
+          newGreenhousePlot = updatedPlot;
+      } else {
+          newOwnedLand[plotIndex] = updatedPlot;
       }
 
-      return prev;
+      return { 
+          ...prev, 
+          ownedLand: newOwnedLand, 
+          greenhousePlot: newGreenhousePlot,
+          inventory: newInventory 
+      };
     });
-  }, [selectedCropId, gameState.currentSeason, gameState.hasGreenhouse]);
+  }, [selectedCropId, gameState.currentSeason]);
   
   const handleBuyLand = useCallback((plot: LandPlot) => {
     if (gameState.cash >= plot.basePrice) {
@@ -308,15 +337,22 @@ const FarmManager: React.FC = () => {
         setGameState(prev => ({
             ...prev,
             cash: prev.cash - GREENHOUSE_COST,
-            hasGreenhouse: true,
+            greenhousePlot: { ...INITIAL_GREENHOUSE_PLOT, isOwned: true },
         }));
-        showSuccess("Greenhouse purchased! You can now grow crops year-round.");
+        showSuccess("Greenhouse purchased! You can now grow crops year-round in the dedicated plot.");
     } else {
         showError("Insufficient funds to purchase the Greenhouse.");
     }
   }, [gameState.cash]);
 
-  // --- Story Introduction ---
+  // --- Rendering Setup ---
+  
+  // Combine regular owned land and greenhouse plot for display
+  const allOwnedPlots = [...gameState.ownedLand];
+  if (gameState.greenhousePlot) {
+      allOwnedPlots.push(gameState.greenhousePlot);
+  }
+
   useEffect(() => {
     showSuccess("Welcome to the farm. Your Grandpa's legacy starts now. You have $100 to buy seeds.");
   }, []);
@@ -363,12 +399,11 @@ const FarmManager: React.FC = () => {
         
         {/* Column 1: Map and Land Acquisition */}
         <div className="lg:col-span-2 space-y-8">
-          <h2 className="text-2xl font-bold border-b pb-2">Owned Farmland</h2>
-          <FarmMap 
-            ownedLand={gameState.ownedLand} 
+          <h2 className="text-2xl font-bold border-b pb-2">Farm Plots</h2>
+          <FarmPlots 
+            plots={allOwnedPlots} 
             selectedCropId={selectedCropId}
             currentSeason={gameState.currentSeason}
-            hasGreenhouse={gameState.hasGreenhouse}
             onTileAction={handleTileAction}
           />
           
@@ -391,7 +426,7 @@ const FarmManager: React.FC = () => {
           <FarmConstruction
             cash={gameState.cash}
             availableLand={availableLand}
-            hasGreenhouse={gameState.hasGreenhouse}
+            isGreenhouseOwned={!!gameState.greenhousePlot}
             onBuyLand={handleBuyLand}
             onBuyGreenhouse={handleBuyGreenhouse}
           />

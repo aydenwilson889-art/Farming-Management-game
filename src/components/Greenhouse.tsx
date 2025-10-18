@@ -7,12 +7,12 @@ import { Leaf, DollarSign, CheckCircle } from 'lucide-react';
 import { GREENHOUSE_COST } from '@/lib/game-data';
 
 interface GreenhouseProps {
-  hasGreenhouse: boolean;
+  isOwned: boolean;
   cash: number;
   onBuyGreenhouse: () => void;
 }
 
-const Greenhouse: React.FC<GreenhouseProps> = ({ hasGreenhouse, cash, onBuyGreenhouse }) => {
+const Greenhouse: React.FC<GreenhouseProps> = ({ isOwned, cash, onBuyGreenhouse }) => {
   const canAfford = cash >= GREENHOUSE_COST;
 
   return (
@@ -22,13 +22,13 @@ const Greenhouse: React.FC<GreenhouseProps> = ({ hasGreenhouse, cash, onBuyGreen
           <Leaf className="w-6 h-6 mr-2 text-green-600" />
           Greenhouse
         </CardTitle>
-        <CardDescription>Allows planting and growth during Winter.</CardDescription>
+        <CardDescription>Allows planting and growth during Winter on its dedicated 6x2 plot.</CardDescription>
       </CardHeader>
       <CardContent>
-        {hasGreenhouse ? (
+        {isOwned ? (
           <div className="flex items-center space-x-2 text-green-600 font-semibold">
             <CheckCircle className="w-5 h-5" />
-            <span>Greenhouse operational! Winter planting is enabled.</span>
+            <span>Greenhouse operational!</span>
           </div>
         ) : (
           <div className="flex justify-between items-center">

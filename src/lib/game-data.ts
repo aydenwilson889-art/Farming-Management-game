@@ -15,6 +15,13 @@ export interface Crop {
   optimalSeason: Season; // New property
 }
 
+export interface PlotTile {
+  id: string;
+  cropId: string | null;
+  growthStage: number; // 0 to 100 (percentage)
+  isReadyToHarvest: boolean;
+}
+
 export interface LandPlot {
   id: string;
   name: string;
@@ -22,13 +29,6 @@ export interface LandPlot {
   basePrice: number; // Cost to purchase the land
   isOwned: boolean;
   tiles: PlotTile[];
-}
-
-export interface PlotTile {
-  id: string;
-  cropId: string | null;
-  growthStage: number; // 0 to 100 (percentage)
-  isReadyToHarvest: boolean;
 }
 
 export interface AnimalProduct {
@@ -53,7 +53,7 @@ export interface GameState {
   cash: number;
   day: number;
   currentSeason: Season; // New property
-  hasGreenhouse: boolean; // New property
+  greenhousePlot: LandPlot | null; // The dedicated greenhouse plot
   inventory: Record<string, number>; // CropId/AnimalProductId -> Quantity
   ownedLand: LandPlot[];
   ownedAnimals: Animal[];
@@ -66,6 +66,7 @@ export const DAYS_PER_SEASON = 7;
 export const TAX_RATE = 0.10; // 10% tax
 export const TAX_DAY_INTERVAL = DAYS_PER_SEASON; // Tax collected at the end of every season (Day 7, 14, 21, etc.)
 export const GREENHOUSE_COST = 5000;
+export const GREENHOUSE_SIZE = 12; // 6x2 grid
 
 export const ANIMAL_PRODUCTS: AnimalProduct[] = [
   { id: 'egg', name: 'Egg', icon: Egg, basePrice: 4 },
@@ -249,11 +250,25 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   },
 ];
 
+export const INITIAL_GREENHOUSE_PLOT: LandPlot = {
+    id: 'greenhouse',
+    name: 'Greenhouse',
+    size: GREENHOUSE_SIZE, // 6x2 grid
+    basePrice: GREENHOUSE_COST,
+    isOwned: false,
+    tiles: Array.from({ length: GREENHOUSE_SIZE }, (_, i) => ({
+      id: `gh-tile-${i}`,
+      cropId: null,
+      growthStage: 0,
+      isReadyToHarvest: false,
+    })),
+};
+
 export const INITIAL_GAME_STATE: GameState = {
   cash: 100, // Starting profit
   day: 1,
   currentSeason: 'Spring',
-  hasGreenhouse: false,
+  greenhousePlot: null, // Starts unowned
   inventory: {},
   ownedLand: INITIAL_LAND_PLOTS.filter(p => p.isOwned),
   ownedAnimals: [],
