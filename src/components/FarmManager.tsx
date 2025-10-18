@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS, Animal, getAnimalProductById, SEASONS, DAYS_PER_SEASON, TAX_RATE, INITIAL_GREENHOUSE_PLOT, GREENHOUSE_COST } from '@/lib/game-data';
+import { INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS, Animal, ANIMALS, getAnimalProductById, SEASONS, DAYS_PER_SEASON, TAX_RATE, INITIAL_GREENHOUSE_PLOT, GREENHOUSE_COST } from '@/lib/game-data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud, Factory } from 'lucide-react';
@@ -174,6 +174,36 @@ const FarmManager: React.FC = () => {
     } else {
       showError("Insufficient funds to buy this animal.");
     }
+  }, [gameState.cash]);
+
+  const handleSellAnimal = useCallback((animalId: string, quantity: number) => {
+    const animalType = ANIMALS.find(a => a.id === animalId);
+    if (!animalType) {
+      showError("Animal type not found.");
+      return;
+    }
+
+    // Use a reduced selling price, e.g., 75% of purchase cost
+    const sellPricePerUnit = Math.floor(animalType.purchaseCost * 0.75);
+    const totalSellValue = quantity * sellPricePerUnit;
+
+    setGameState(prev => {
+      const existingAnimalIndex = prev.ownedAnimals.findIndex(a => a.id === animalId);
+      
+      if (existingAnimalIndex === -1 || prev.ownedAnimals[existingAnimalIndex].quantity < quantity) {
+        showError("Error selling animals: Quantity mismatch.");
+        return prev;
+      }
+
+      const newOwnedAnimals = prev.ownedAnimals.filter(a => a.id !== animalId);
+      
+      return {
+        ...prev,
+        cash: prev.cash + totalSellValue,
+        ownedAnimals: newOwnedAnimals,
+      };
+    });
+    showSuccess(`Sold ${quantity} ${animalType.name}(s) for $${totalSellValue.toLocaleString()}.`);
   }, [gameState.cash]);
 
 
@@ -415,11 +445,13 @@ const FarmManager: React.FC = () => {
           <FarmShop 
             cash={gameState.cash}
             inventory={gameState.inventory}
+            ownedAnimals={gameState.ownedAnimals}
             selectedCropId={selectedCropId}
             onSelectCrop={setSelectedCropId}
             onBuySeed={handleBuySeed}
             onSellItem={handleSellItem}
             onBuyAnimal={handleBuyAnimal}
+            onSellAnimal={handleSellAnimal}
           />
           
           <FarmConstruction

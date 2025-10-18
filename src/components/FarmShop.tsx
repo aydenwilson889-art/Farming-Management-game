@@ -12,14 +12,16 @@ import { cn } from '@/lib/utils';
 interface FarmShopProps {
   cash: number;
   inventory: Record<string, number>;
+  ownedAnimals: Animal[]; // Added ownedAnimals prop
   selectedCropId: string | null;
   onSelectCrop: (cropId: string | null) => void;
   onBuySeed: (crop: Crop) => void;
   onSellItem: (itemId: string, quantity: number) => void;
   onBuyAnimal: (animal: Animal) => void;
+  onSellAnimal: (animalId: string, quantity: number) => void; // Added onSellAnimal handler
 }
 
-const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, selectedCropId, onSelectCrop, onBuySeed, onSellItem, onBuyAnimal }) => {
+const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, selectedCropId, onSelectCrop, onBuySeed, onSellItem, onBuyAnimal, onSellAnimal }) => {
   
   // Filter inventory into crops and animal products
   const inventoryItems = Object.entries(inventory).map(([itemId, quantity]) => {
@@ -42,6 +44,8 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, selectedCropId, on
     return total;
   }, 0);
 
+  const totalOwnedAnimals = ownedAnimals.reduce((sum, a) => sum + a.quantity, 0);
+
   return (
     <Card className="w-full shadow-lg">
       <CardHeader>
@@ -53,10 +57,11 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, selectedCropId, on
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="buy-seeds">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="buy-seeds">Buy Seeds</TabsTrigger>
             <TabsTrigger value="buy-animals">Buy Animals</TabsTrigger>
-            <TabsTrigger value="sell">Sell Harvest ({inventoryItems.length})</TabsTrigger>
+            <TabsTrigger value="sell-harvest">Sell Harvest ({inventoryItems.length})</TabsTrigger>
+            <TabsTrigger value="sell-animals">Sell Animals ({totalOwnedAnimals})</TabsTrigger>
           </TabsList>
           
           {/* Buy Seeds Tab */}
@@ -140,8 +145,8 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, selectedCropId, on
             })}
           </TabsContent>
           
-          {/* Sell Inventory Tab */}
-          <TabsContent value="sell" className="mt-4 space-y-3">
+          {/* Sell Harvest Tab */}
+          <TabsContent value="sell-harvest" className="mt-4 space-y-3">
             {inventoryItems.length === 0 ? (
               <p className="text-center text-muted-foreground py-4">Inventory is empty. Harvest crops or collect products!</p>
             ) : (
@@ -183,6 +188,44 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, selectedCropId, on
                   );
                 })}
               </>
+            )}
+          </TabsContent>
+
+          {/* Sell Animals Tab */}
+          <TabsContent value="sell-animals" className="mt-4 space-y-3">
+            {ownedAnimals.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">You don't own any animals to sell.</p>
+            ) : (
+              ownedAnimals.map((animal) => {
+                // Use a reduced selling price, e.g., 75% of purchase cost
+                const sellPricePerUnit = Math.floor(animal.purchaseCost * 0.75);
+                const totalSellValue = animal.quantity * sellPricePerUnit;
+
+                return (
+                  <div 
+                    key={animal.id} 
+                    className="flex items-center justify-between p-3 border rounded-lg bg-card"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <animal.icon className="w-6 h-6 text-amber-700" />
+                      <div>
+                        <h4 className="font-semibold">{animal.name} ({animal.quantity} units)</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Sell Price: ${sellPricePerUnit} per unit. Total: ${totalSellValue.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => onSellAnimal(animal.id, animal.quantity)}
+                      variant="destructive"
+                      className="h-8 flex items-center space-x-1"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                      <span>Sell All</span>
+                    </Button>
+                  </div>
+                );
+              })
             )}
           </TabsContent>
         </Tabs>
