@@ -52,15 +52,15 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
           <ShoppingCart className="w-6 h-6 mr-2" />
           Marketplace
         </CardTitle>
-        <CardDescription>Manage your resources and trade goods. Use the 'Buy' button for custom quantities and tax breakdown.</CardDescription>
+        <CardDescription>Manage your resources and trade goods. Use the 'Buy Online' button for custom quantities and tax breakdown.</CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="buy-seeds">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="buy-seeds">Buy Seeds</TabsTrigger>
-            <TabsTrigger value="buy-animals">Buy Animals</TabsTrigger>
-            <TabsTrigger value="sell-harvest">Sell Harvest ({inventoryItems.length})</TabsTrigger>
-            <TabsTrigger value="sell-animals">Sell Animals ({totalOwnedAnimals})</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
+            <TabsTrigger value="buy-seeds">Seeds</TabsTrigger>
+            <TabsTrigger value="buy-animals">Animals</TabsTrigger>
+            <TabsTrigger value="sell-harvest">Sell ({inventoryItems.length})</TabsTrigger>
+            <TabsTrigger value="sell-animals">Sell Livestock ({totalOwnedAnimals})</TabsTrigger>
           </TabsList>
           
           {/* Buy Seeds Tab */}
@@ -73,7 +73,7 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
                 <div 
                   key={crop.id} 
                   className={cn(
-                    "flex flex-col md:flex-row items-start md:items-center justify-between p-3 border rounded-lg transition-colors space-y-2 md:space-y-0",
+                    "flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 border rounded-lg transition-colors space-y-2 sm:space-y-0",
                     isSelected ? "bg-primary/10 border-primary" : "hover:bg-muted/50"
                   )}
                 >
@@ -82,7 +82,7 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
                     <div>
                       <h4 className="font-semibold">{crop.name} Seeds</h4>
                       <p className="text-xs text-muted-foreground">
-                        Grows in {crop.growthTime} days. Yields {crop.baseYield} units.
+                        Cost: ${crop.seedCost} | Yield: {crop.baseYield} units.
                       </p>
                     </div>
                   </div>
@@ -90,14 +90,14 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
                     <Button
                       variant={isSelected ? "default" : "outline"}
                       onClick={() => onSelectCrop(isSelected ? null : crop.id)}
-                      className="h-8"
+                      className="h-8 text-xs"
                     >
                       {isSelected ? "Selected" : "Select"}
                     </Button>
                     <Button
                       onClick={() => onOpenPurchaseModal(crop)}
                       disabled={!canAfford}
-                      className="h-8 flex items-center space-x-1 text-xs"
+                      className="h-8 flex items-center space-x-1 text-xs bg-green-600 hover:bg-green-700"
                     >
                       <DollarSign className="w-3 h-3" />
                       <span>Buy Online</span>
@@ -117,7 +117,7 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
                 <div 
                   key={animal.id} 
                   className={cn(
-                    "flex flex-col md:flex-row items-start md:items-center justify-between p-3 border rounded-lg transition-colors space-y-2 md:space-y-0 hover:bg-muted/50"
+                    "flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 border rounded-lg transition-colors space-y-2 sm:space-y-0 hover:bg-muted/50"
                   )}
                 >
                   <div className="flex items-center space-x-3">
@@ -125,7 +125,7 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
                     <div>
                       <h4 className="font-semibold">{animal.name}</h4>
                       <p className="text-xs text-muted-foreground">
-                        Produces {animal.product.name} every {animal.productionTime} days.
+                        Cost: ${animal.purchaseCost} | Produces {animal.product.name} every {animal.productionTime} days.
                       </p>
                     </div>
                   </div>
@@ -133,7 +133,7 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
                     <Button
                       onClick={() => onOpenPurchaseModal(animal)}
                       disabled={!canAfford}
-                      className="h-8 flex items-center space-x-1 text-xs"
+                      className="h-8 flex items-center space-x-1 text-xs bg-green-600 hover:bg-green-700"
                     >
                       <DollarSign className="w-3 h-3" />
                       <span>Buy Online</span>
@@ -144,7 +144,7 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
             })}
           </TabsContent>
           
-          {/* Sell Harvest Tab (Unchanged) */}
+          {/* Sell Harvest Tab */}
           <TabsContent value="sell-harvest" className="mt-4 space-y-3">
             {inventoryItems.length === 0 ? (
               <p className="text-center text-muted-foreground py-4">Inventory is empty. Harvest crops or collect products!</p>
@@ -190,7 +190,7 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, ownedAnimals, sele
             )}
           </TabsContent>
 
-          {/* Sell Animals Tab (Unchanged) */}
+          {/* Sell Animals Tab */}
           <TabsContent value="sell-animals" className="mt-4 space-y-3">
             {ownedAnimals.length === 0 ? (
               <p className="text-center text-muted-foreground py-4">You don't own any animals to sell.</p>

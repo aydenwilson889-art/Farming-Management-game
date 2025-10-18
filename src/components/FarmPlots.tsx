@@ -5,7 +5,7 @@ import { LandPlot, PlotTile, Crop, getCropById, Season } from '@/lib/game-data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { Leaf, Check, X, Loader2, LandPlot as LandPlotIcon, Snowflake, Factory, Zap } from 'lucide-react';
+import { Leaf, LandPlot as LandPlotIcon, Snowflake, Factory, Zap } from 'lucide-react';
 
 interface FarmPlotsProps {
   plots: LandPlot[];
@@ -33,8 +33,8 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSea
     const crop = tile.cropId ? getCropById(tile.cropId) : null;
     const selectedCrop = selectedCropId ? getCropById(selectedCropId) : null;
 
-    let tileClasses = "w-10 h-10 border flex items-center justify-center text-xs transition-all duration-300 cursor-pointer relative overflow-hidden";
-    let content = <X className="w-5 h-5 text-gray-400" />;
+    let tileClasses = "w-12 h-12 border flex items-center justify-center text-xs transition-all duration-300 relative overflow-hidden rounded-sm";
+    let content = <LandPlotIcon className="w-6 h-6 text-gray-400" />;
     let action: 'plant' | 'harvest' | null = null;
     let tooltip = "Empty Plot";
 
@@ -48,11 +48,11 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSea
 
     if (tile.isReadyToHarvest && crop) {
       // Ready to Harvest
-      tileClasses = cn(tileClasses, "bg-yellow-300 hover:bg-yellow-400 border-yellow-600 ring-2 ring-yellow-600");
+      tileClasses = cn(tileClasses, "bg-yellow-300 hover:bg-yellow-400 border-yellow-600 ring-2 ring-yellow-600 cursor-pointer");
       const CropIcon = crop.icon;
-      content = <CropIcon className="w-6 h-6 text-yellow-800" />;
+      content = <CropIcon className="w-7 h-7 text-yellow-800 z-10" />;
       action = 'harvest';
-      tooltip = `Ready to Harvest: ${crop.name}`;
+      tooltip = `Ready to Harvest: ${crop.name} (Click to collect)`;
     } else if (crop) {
       // Growing
       const growthPercentage = tile.growthStage;
@@ -61,14 +61,14 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSea
       // Visual representation of growth
       const growthHeight = `${Math.min(100, Math.max(10, growthPercentage))}%`;
       
-      tileClasses = cn(tileClasses, "bg-green-100 border-green-700");
+      tileClasses = cn(tileClasses, "bg-green-100 border-green-700 cursor-default");
       content = (
         <>
           <div 
-            className="absolute bottom-0 left-0 w-full bg-green-500 transition-all duration-500"
+            className="absolute bottom-0 left-0 w-full bg-green-500 transition-all duration-500 opacity-70"
             style={{ height: growthHeight }}
           />
-          <CropIcon className="w-5 h-5 text-green-900 z-10" />
+          <CropIcon className="w-6 h-6 text-green-900 z-10" />
           {isOptimalSeason && <Zap className="absolute top-0 right-0 w-3 h-3 text-yellow-400 z-20" title="Optimal Growth" />}
         </>
       );
@@ -78,28 +78,27 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSea
       // If it's regular land and winter, growth stops/freezes
       if (isWinter && !isGreenhouse) {
         tileClasses = cn(tileClasses, "bg-blue-100 border-blue-300 cursor-not-allowed");
-        content = <Snowflake className="w-5 h-5 text-blue-500" />;
+        content = <Snowflake className="w-6 h-6 text-blue-500 z-10" />;
         tooltip = `${crop.name} is frozen! Growth stopped.`;
       }
 
     } else if (selectedCropId) {
       // Empty, ready to plant
       if (isPlantingAllowed) {
-        tileClasses = cn(tileClasses, "bg-gray-200 hover:bg-green-300 border-gray-400");
-        content = <Leaf className="w-5 h-5 text-green-600" />;
+        tileClasses = cn(tileClasses, "bg-gray-200 hover:bg-green-300 border-gray-400 cursor-pointer");
+        content = <Leaf className="w-6 h-6 text-green-600" />;
         action = 'plant';
         tooltip = `Click to plant ${selectedCrop?.name}.`;
       } else {
         // Cannot plant due to winter on regular land
         tileClasses = cn(tileClasses, "bg-blue-100 border-blue-300 cursor-not-allowed");
-        content = <Snowflake className="w-5 h-5 text-blue-500" />;
+        content = <Snowflake className="w-6 h-6 text-blue-500" />;
         action = null;
         tooltip = `Cannot plant in Winter outside of the Greenhouse.`;
       }
     } else {
       // Empty, no crop selected
-      tileClasses = cn(tileClasses, "bg-gray-100 hover:bg-gray-200 border-gray-300");
-      content = <LandPlotIcon className="w-5 h-5 text-gray-400" />;
+      tileClasses = cn(tileClasses, "bg-gray-100 hover:bg-gray-200 border-gray-300 cursor-default");
       action = null;
     }
 
@@ -151,7 +150,7 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, currentSea
                   className="grid gap-1 mx-auto"
                   style={{
                     gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
-                    maxWidth: `${gridColumns * 44}px` // 40px tile + 4px gap
+                    maxWidth: `${gridColumns * 52}px` // 48px tile + 4px gap
                   }}
                 >
                   {plot.tiles.map(tile => renderTile(plot.id, tile, isGreenhouse))}
