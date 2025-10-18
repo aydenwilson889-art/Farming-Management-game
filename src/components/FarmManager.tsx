@@ -8,7 +8,7 @@ import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Sn
 import FarmMap from './FarmMap';
 import FarmShop from './FarmShop';
 import AnimalPen from './AnimalPen';
-import Greenhouse from './Greenhouse';
+import FarmConstruction from './FarmConstruction'; // Import the new component
 import { showSuccess, showError } from '@/utils/toast';
 
 const FarmManager: React.FC = () => {
@@ -374,40 +374,10 @@ const FarmManager: React.FC = () => {
           
           <h2 className="text-2xl font-bold border-b pb-2">Livestock</h2>
           <AnimalPen ownedAnimals={gameState.ownedAnimals} />
-
-          <h2 className="text-2xl font-bold border-b pb-2">Infrastructure</h2>
-          <Greenhouse 
-            hasGreenhouse={gameState.hasGreenhouse}
-            cash={gameState.cash}
-            onBuyGreenhouse={handleBuyGreenhouse}
-          />
-
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-xl">Land Acquisition</CardTitle>
-              <CardDescription>Expand your agricultural empire by purchasing new plots.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {availableLand.filter(p => !p.isOwned).map(plot => (
-                <div key={plot.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-muted/50">
-                  <div>
-                    <h4 className="font-semibold">{plot.name} ({plot.size} tiles)</h4>
-                    <p className="text-sm text-muted-foreground">Cost: ${plot.basePrice.toLocaleString()}</p>
-                  </div>
-                  <Button 
-                    onClick={() => handleBuyLand(plot)}
-                    disabled={gameState.cash < plot.basePrice}
-                  >
-                    Buy Land
-                  </Button>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
         </div>
         
-        {/* Column 2: Shop and Inventory */}
-        <div className="lg:col-span-1">
+        {/* Column 2: Shop, Inventory, and Construction */}
+        <div className="lg:col-span-1 space-y-8">
           <FarmShop 
             cash={gameState.cash}
             inventory={gameState.inventory}
@@ -416,6 +386,14 @@ const FarmManager: React.FC = () => {
             onBuySeed={handleBuySeed}
             onSellItem={handleSellItem}
             onBuyAnimal={handleBuyAnimal}
+          />
+          
+          <FarmConstruction
+            cash={gameState.cash}
+            availableLand={availableLand}
+            hasGreenhouse={gameState.hasGreenhouse}
+            onBuyLand={handleBuyLand}
+            onBuyGreenhouse={handleBuyGreenhouse}
           />
         </div>
       </div>
