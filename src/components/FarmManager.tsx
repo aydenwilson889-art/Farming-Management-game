@@ -15,6 +15,7 @@ import AdminPanel from './AdminPanel';
 import CropInfoCard from './CropInfoCard';
 import { useFarmGame, PurchaseDetails } from '@/hooks/use-farm-game';
 import { showSuccess } from '@/utils/toast';
+import { cn } from '@/lib/utils';
 
 const FarmManager: React.FC = () => {
   const {
