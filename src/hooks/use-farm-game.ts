@@ -3,7 +3,7 @@ import {
   INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS, Animal, ANIMALS, getAnimalProductById, 
   SEASONS, DAYS_PER_SEASON, TAX_RATE, INITIAL_GREENHOUSE_PLOT, GREENHOUSE_COST, Season, Fertilizer, getFertilizerById,
   calculateMeatPriceMultiplier, BUTCHER_STAND_COST, MEAT_PRODUCT_IDS, getRestaurantById, Restaurant, GameState,
-  Silo, SILO_COST, WATER_PUMP_COST, BASE_INVENTORY_CAPACITY, SILO_CAPACITY_INCREASE
+  WATER_PUMP_COST, BASE_INVENTORY_CAPACITY, SMALL_SILO_COST, LARGE_SILO_COST, SMALL_SILO_CAPACITY_INCREASE, LARGE_SILO_CAPACITY_INCREASE, ALL_AT_ONCE_FEE
 } from '@/lib/game-data';
 import { RNG_EVENTS, RNGEvent } from '@/lib/rng-events';
 import { showSuccess, showError } from '@/utils/toast';
@@ -100,8 +100,11 @@ const handleRandomEvent = (state: GameState): { newState: GameState, eventOccurr
  */
 const calculateInventoryCapacity = (state: GameState): number => {
     let capacity = BASE_INVENTORY_CAPACITY;
-    if (state.hasSilo) {
-        capacity += SILO_CAPACITY_INCREASE;
+    if (state.hasSmallSilo) {
+        capacity += SMALL_SILO_CAPACITY_INCREASE;
+    }
+    if (state.hasLargeSilo) {
+        capacity += LARGE_SILO_CAPACITY_INCREASE;
     }
     return capacity;
 };
@@ -350,6 +353,19 @@ export function useFarmGame() {
             return false;
         }
     }
+    
+    // Check fertilizer land requirement
+    if (details.type === 'fertilizer') {
+        const fertilizer = details.item as Fertilizer;
+        if (fertilizer.minLandRequirement) {
+            const requiredPlot = INITIAL_LAND_PLOTS.find(p => p.id === fertilizer.minLandRequirement);
+            if (requiredPlot && !gameState.ownedLand.some(p => p.id === requiredPlot.id)) {
+                showError(`Cannot purchase ${fertilizer.name}. Requires ownership of ${requiredPlot.name}.`);
+                return false;
+            }
+        }
+    }
+
 
     setGameState(prev => {
         let newCash = prev.cash - details.totalCost;
@@ -397,7 +413,7 @@ export function useFarmGame() {
         };
     });
     return true;
-  }, [gameState.cash, gameState.inventory]);
+  }, [gameState.cash, gameState.inventory, gameState.ownedLand]);
 
 
   // --- Fertilizer Handler (Omitted for brevity, assuming existing logic is fine) ---
@@ -444,55 +460,74 @@ export function useFarmGame() {
             return prev;
         }
         
-        // 1. Calculate affected tiles (simple square coverage centered on tileId)
+        // 1. Calculate affected tiles (using a simple square coverage centered on tileId)
         const plotSize = Math.sqrt(targetPlot.size);
         const centerRow = Math.floor(tileIndex / plotSize);
         const centerCol = tileIndex % plotSize;
         
         const affectedIndices: number[] = [];
         
-        // Weak (1 tile)
-        if (fertilizer.coverage === 1) {
+        // Determine the dimensions of the coverage area (e.g., 1x1, 2x2, 3x3, 4x4, 5x5)
+        let coverageDim = 1;
+        if (fertilizer.coverage === 4) coverageDim = 2;
+        else if (fertilizer.coverage === 6) coverageDim = 3; // Using 3x2 or 2x3 logic from previous implementation
+        else if (fertilizer.coverage === 9) coverageDim = 3;
+        else if (fertilizer.coverage === 16) coverageDim = 4;
+        else if (fertilizer.coverage === 25) coverageDim = 5;
+        
+        // Simplified coverage calculation for square/rectangular areas
+        if (coverageDim > 1) {
+            // Calculate the top-left corner of the coverage area, ensuring it stays within plot bounds
+            const startRow = Math.max(0, Math.min(plotSize - coverageDim, centerRow - Math.floor(coverageDim / 2)));
+            const startCol = Math.max(0, Math.min(plotSize - coverageDim, centerCol - Math.floor(coverageDim / 2)));
+            
+            for (let r = startRow; r < startRow + coverageDim; r++) {
+                for (let c = startCol; c < startCol + coverageDim; c++) {
+                    const index = r * plotSize + c;
+                    if (index < targetPlot.size) {
+                        affectedIndices.push(index);
+                    }
+                }
+            }
+            
+            // Special handling for 6-tile coverage (3x2 or 2x3) if the plot is not square
+            if (fertilizer.coverage === 6) {
+                // Revert to previous 3x2/2x3 logic if needed, but for simplicity, we'll stick to the square approximation above
+                // For now, we rely on the previous implementation's logic for 6 tiles, which is complex. 
+                // Since the new fertilizers use 9, 16, 25 (squares), we ensure the logic handles the general case.
+                // We will keep the previous complex logic for 6 tiles for consistency if it was working.
+                // Since the previous logic for 6 tiles was complex and specific, let's ensure the new square logic doesn't break 6.
+                // For 6 tiles, we'll use the previous implementation's logic exactly:
+                if (fertilizer.coverage === 6) {
+                    affectedIndices.length = 0; // Clear square approximation
+                    const isWideEnough = plotSize >= 3;
+                    
+                    if (isWideEnough) {
+                        // Prioritize 3x2 horizontal spread
+                        const startRow = Math.max(0, Math.min(plotSize - 2, centerRow));
+                        const startCol = Math.max(0, Math.min(plotSize - 3, centerCol));
+                        
+                        for (let r = startRow; r < startRow + 2; r++) {
+                            for (let c = startCol; c < startCol + 3; c++) {
+                                affectedIndices.push(r * plotSize + c);
+                            }
+                        }
+                    } else {
+                        // Fallback for narrow plots (e.g., 3x2 greenhouse) - use 2x3 vertical spread if possible
+                        const startRow = Math.max(0, Math.min(plotSize - 3, centerRow));
+                        const startCol = Math.max(0, Math.min(plotSize - 2, centerCol));
+                        
+                        for (let r = startRow; r < startRow + 3; r++) {
+                            for (let c = startCol; c < startCol + 2; c++) {
+                                affectedIndices.push(r * plotSize + c);
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // 1x1 coverage (Weak Fertilizer)
             affectedIndices.push(tileIndex);
-        } 
-        // Normal (4 tiles, 2x2)
-        else if (fertilizer.coverage === 4) {
-            // Try to center 2x2 block on the tile, prioritizing top-left corner
-            const startRow = Math.max(0, Math.min(plotSize - 2, centerRow));
-            const startCol = Math.max(0, Math.min(plotSize - 2, centerCol));
-            
-            for (let r = startRow; r < startRow + 2; r++) {
-                for (let c = startCol; c < startCol + 2; c++) {
-                    affectedIndices.push(r * plotSize + c);
-                }
-            }
-        }
-        // Strong (6 tiles, 3x2 or 2x3, prioritizing 3x2 horizontal spread)
-        else if (fertilizer.coverage === 6) {
-            // Determine if the plot is wide enough for 3 columns (e.g., 3x3, 4x4, 5x5 plots)
-            const isWideEnough = plotSize >= 3;
-            
-            if (isWideEnough) {
-                // Prioritize 3x2 horizontal spread
-                const startRow = Math.max(0, Math.min(plotSize - 2, centerRow));
-                const startCol = Math.max(0, Math.min(plotSize - 3, centerCol));
-                
-                for (let r = startRow; r < startRow + 2; r++) {
-                    for (let c = startCol; c < startCol + 3; c++) {
-                        affectedIndices.push(r * plotSize + c);
-                    }
-                }
-            } else {
-                // Fallback for narrow plots (e.g., 3x2 greenhouse) - use 2x3 vertical spread if possible
-                const startRow = Math.max(0, Math.min(plotSize - 3, centerRow));
-                const startCol = Math.max(0, Math.min(plotSize - 2, centerCol));
-                
-                for (let r = startRow; r < startRow + 3; r++) {
-                    for (let c = startCol; c < startCol + 2; c++) {
-                        affectedIndices.push(r * plotSize + c);
-                    }
-                }
-            }
         }
         
         let tilesFertilizedCount = 0;
@@ -549,11 +584,127 @@ export function useFarmGame() {
             fertilizerInventory: newFertilizerInventory,
         };
     });
+  }, [gameState.ownedLand]);
+
+
+  // --- Mass Action Handlers ---
+  
+  const handlePlantAll = useCallback((selectedCropId: string) => {
+    const crop = getCropById(selectedCropId);
+    if (!crop) {
+        showError("Please select a valid seed type first.");
+        return;
+    }
+    
+    setGameState(prev => {
+        if (prev.cash < ALL_AT_ONCE_FEE) {
+            showError(`Cannot afford 'Plant All'. Requires $${ALL_AT_ONCE_FEE}.`);
+            return prev;
+        }
+        
+        let newCash = prev.cash - ALL_AT_ONCE_FEE;
+        let newInventory = { ...prev.inventory };
+        let tilesPlanted = 0;
+        
+        const isWinter = prev.currentSeason === 'Winter';
+        const maxCapacity = calculateInventoryCapacity(prev);
+        
+        const processPlotPlanting = (plot: LandPlot): LandPlot => {
+            const isGreenhouse = plot.id === 'greenhouse';
+            const isPlantingAllowed = !isWinter || isGreenhouse;
+            
+            if (!isPlantingAllowed) return plot;
+
+            const newTiles = plot.tiles.map(tile => {
+                if (!tile.cropId) {
+                    const seedCount = newInventory[selectedCropId] || 0;
+                    
+                    if (seedCount > 0) {
+                        tilesPlanted++;
+                        newInventory[selectedCropId] = seedCount - 1;
+                        return { ...tile, cropId: selectedCropId, growthStage: 0, isReadyToHarvest: false, fertilizerId: null };
+                    }
+                }
+                return tile;
+            });
+            return { ...plot, tiles: newTiles };
+        };
+
+        let newOwnedLand = prev.ownedLand.map(processPlotPlanting);
+        let newGreenhousePlot = prev.greenhousePlot ? processPlotPlanting(prev.greenhousePlot) : null;
+        
+        if (tilesPlanted > 0) {
+            showSuccess(`Planted ${tilesPlanted} tile(s) with ${crop.name} seeds for $${ALL_AT_ONCE_FEE}.`);
+        } else {
+            showError("No empty plots available or ran out of seeds.");
+            newCash = prev.cash; // Refund fee if nothing was planted
+        }
+        
+        // Clean up inventory if count hit zero
+        if (newInventory[selectedCropId] === 0) delete newInventory[selectedCropId];
+
+        return { ...prev, cash: newCash, inventory: newInventory, ownedLand: newOwnedLand, greenhousePlot: newGreenhousePlot };
+    });
+  }, [gameState.currentSeason]);
+
+  const handleHarvestAll = useCallback(() => {
+    setGameState(prev => {
+        if (prev.cash < ALL_AT_ONCE_FEE) {
+            showError(`Cannot afford 'Harvest All'. Requires $${ALL_AT_ONCE_FEE}.`);
+            return prev;
+        }
+        
+        let newCash = prev.cash - ALL_AT_ONCE_FEE;
+        let newInventory = { ...prev.inventory };
+        let tilesHarvested = 0;
+        let totalYield = 0;
+        
+        const maxCapacity = calculateInventoryCapacity(prev);
+        let currentTotalInventory = Object.values(prev.inventory).reduce((sum, q) => sum + q, 0);
+
+        const processPlotHarvest = (plot: LandPlot): LandPlot => {
+            const newTiles = plot.tiles.map(tile => {
+                if (tile.isReadyToHarvest && tile.cropId) {
+                    const crop = getCropById(tile.cropId);
+                    if (crop) {
+                        const yieldAmount = crop.baseYield;
+                        
+                        if (currentTotalInventory + yieldAmount <= maxCapacity) {
+                            tilesHarvested++;
+                            totalYield += yieldAmount;
+                            currentTotalInventory += yieldAmount;
+                            
+                            newInventory = { 
+                                ...newInventory, 
+                                [crop.id]: (newInventory[crop.id] || 0) + yieldAmount 
+                            };
+                            
+                            return { ...tile, cropId: null, growthStage: 0, isReadyToHarvest: false, fertilizerId: null };
+                        }
+                    }
+                }
+                return tile;
+            });
+            return { ...plot, tiles: newTiles };
+        };
+
+        let newOwnedLand = prev.ownedLand.map(processPlotHarvest);
+        let newGreenhousePlot = prev.greenhousePlot ? processPlotHarvest(prev.greenhousePlot) : null;
+        
+        if (tilesHarvested > 0) {
+            showSuccess(`Harvested ${tilesHarvested} tile(s) for $${ALL_AT_ONCE_FEE}. Total yield: ${totalYield} units.`);
+        } else {
+            showError("No crops were ready to harvest.");
+            newCash = prev.cash; // Refund fee if nothing was harvested
+        }
+
+        return { ...prev, cash: newCash, inventory: newInventory, ownedLand: newOwnedLand, greenhousePlot: newGreenhousePlot };
+    });
   }, []);
 
 
-  // --- Sell/Butcher Handlers ---
-
+  // --- Sell/Butcher Handlers (omitted for brevity, no changes needed here) ---
+  
   const handleButcherAnimal = useCallback((animalId: string) => {
     setGameState(prev => {
         const animalIndex = prev.ownedAnimals.findIndex(a => a.id === animalId);
@@ -869,16 +1020,29 @@ export function useFarmGame() {
     }
   }, [gameState.cash]);
   
-  const handleBuySilo = useCallback(() => {
-    if (gameState.cash >= SILO_COST) {
+  const handleBuySmallSilo = useCallback(() => {
+    if (gameState.cash >= SMALL_SILO_COST) {
         setGameState(prev => ({
             ...prev,
-            cash: prev.cash - SILO_COST,
-            hasSilo: true,
+            cash: prev.cash - SMALL_SILO_COST,
+            hasSmallSilo: true,
         }));
-        showSuccess(`Silo purchased! Inventory capacity increased by ${SILO_CAPACITY_INCREASE.toLocaleString()} units.`);
+        showSuccess(`Small Silo purchased! Inventory capacity increased by ${SMALL_SILO_CAPACITY_INCREASE.toLocaleString()} units.`);
     } else {
-        showError("Insufficient funds to purchase the Silo.");
+        showError("Insufficient funds to purchase the Small Silo.");
+    }
+  }, [gameState.cash]);
+  
+  const handleBuyLargeSilo = useCallback(() => {
+    if (gameState.cash >= LARGE_SILO_COST) {
+        setGameState(prev => ({
+            ...prev,
+            cash: prev.cash - LARGE_SILO_COST,
+            hasLargeSilo: true,
+        }));
+        showSuccess(`Large Silo purchased! Inventory capacity increased by ${LARGE_SILO_CAPACITY_INCREASE.toLocaleString()} units.`);
+    } else {
+        showError("Insufficient funds to purchase the Large Silo.");
     }
   }, [gameState.cash]);
   
@@ -906,11 +1070,14 @@ export function useFarmGame() {
     handleSellItem,
     handleSellMeatToRestaurant,
     handleTileAction,
+    handlePlantAll, // Export new handler
+    handleHarvestAll, // Export new handler
     handleBuyLand,
     handleBuyGreenhouse,
     handleBuyButcherStand,
-    handleBuySilo, // Export new handler
-    handleBuyWaterPump, // Export new handler
+    handleBuySmallSilo, // Export new handler
+    handleBuyLargeSilo, // Export new handler
+    handleBuyWaterPump,
     handleApplyFertilizer,
     adjustCash,
     adjustDay,

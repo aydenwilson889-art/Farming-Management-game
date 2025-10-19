@@ -14,6 +14,7 @@ import AnimalFeeding from './AnimalFeeding';
 import MeatSales from './MeatSales';
 import PurchaseModal from './PurchaseModal';
 import AdminPanel from './AdminPanel';
+import MassActionPanel from './MassActionPanel'; // Import new component
 import { useFarmGame, PurchaseDetails } from '@/hooks/use-farm-game';
 import { showSuccess, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
@@ -29,11 +30,14 @@ const FarmManager: React.FC = () => {
     handleSellItem,
     handleSellMeatToRestaurant,
     handleTileAction,
+    handlePlantAll, // New handler
+    handleHarvestAll, // New handler
     handleBuyLand,
     handleBuyGreenhouse,
     handleBuyButcherStand,
-    handleBuySilo, // New handler
-    handleBuyWaterPump, // New handler
+    handleBuySmallSilo, // Updated handler
+    handleBuyLargeSilo, // Updated handler
+    handleBuyWaterPump,
     handleApplyFertilizer,
     adjustCash,
     adjustDay,
@@ -171,6 +175,14 @@ const FarmManager: React.FC = () => {
             </div>
         </Card>
       )}
+      
+      {/* Mass Action Panel */}
+      <MassActionPanel
+        cash={gameState.cash}
+        selectedCropId={selectedCropId}
+        onPlantAll={handlePlantAll}
+        onHarvestAll={handleHarvestAll}
+      />
 
       {/* 1. Farm Plots */}
       <FarmPlots 
@@ -244,13 +256,15 @@ const FarmManager: React.FC = () => {
         availableLand={availableLand} 
         isGreenhouseOwned={!!gameState.greenhousePlot} 
         hasButcherStand={gameState.hasButcherStand}
-        hasSilo={gameState.hasSilo} // Pass new prop
-        hasWaterPump={gameState.hasWaterPump} // Pass new prop
+        hasSmallSilo={gameState.hasSmallSilo} // Pass updated prop
+        hasLargeSilo={gameState.hasLargeSilo} // Pass updated prop
+        hasWaterPump={gameState.hasWaterPump} 
         onBuyLand={handleBuyLand} 
         onBuyGreenhouse={handleBuyGreenhouse} 
         onBuyButcherStand={handleBuyButcherStand}
-        onBuySilo={handleBuySilo} // Pass new handler
-        onBuyWaterPump={handleBuyWaterPump} // Pass new handler
+        onBuySmallSilo={handleBuySmallSilo} // Pass updated handler
+        onBuyLargeSilo={handleBuyLargeSilo} // Pass updated handler
+        onBuyWaterPump={handleBuyWaterPump} 
         selectedCropId={selectedCropId}
         selectedFertilizerId={selectedFertilizerId}
         onSelectCrop={handleSelectCrop} 

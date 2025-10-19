@@ -1,4 +1,4 @@
-import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet, Beef, Drumstick, Factory, Utensils, ChefHat, Soup, UtensilsCrossed, Warehouse, Waves } from 'lucide-react';
+import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet, Beef, Drumstick, Factory, Utensils, ChefHat, Soup, UtensilsCrossed, Warehouse, Waves, Grape, Cherry, Lemon, Coffee, Corn, Potato, Onion, Pepper, Mushroom, Flower, TreePine, TreeDeciduous, Clover, Sun, Gem, Diamond, Shield, Sword } from 'lucide-react';
 
 // --- Types ---
 
@@ -68,6 +68,7 @@ export interface Fertilizer {
   cost: number;
   coverage: number; // Number of tiles it affects
   growthBoost: number; // Percentage boost applied instantly (e.g., 0.25 for 25%)
+  minLandRequirement?: string; // ID of the minimum land plot required to use this fertilizer
 }
 
 export interface Restaurant {
@@ -89,7 +90,8 @@ export interface GameState {
   ownedLand: LandPlot[];
   ownedAnimals: Animal[];
   hasButcherStand: boolean; // New property for Personal Butcher Stand
-  hasSilo: boolean; // New property for Silo
+  hasSmallSilo: boolean; // Updated Silo property
+  hasLargeSilo: boolean; // Updated Silo property
   hasWaterPump: boolean; // New property for Water Pump
 }
 
@@ -102,10 +104,16 @@ export const TAX_DAY_INTERVAL = DAYS_PER_SEASON; // Tax collected at the end of 
 export const GREENHOUSE_COST = 5000;
 export const GREENHOUSE_SIZE = 6; // 3x2 grid
 export const BUTCHER_STAND_COST = 10000; // Cost for the Personal Butcher Stand
-export const SILO_COST = 7500; // Cost for the Silo
 export const WATER_PUMP_COST = 12000; // Cost for the Water Pump
+
+// Silo Updates
+export const SMALL_SILO_COST = 25000; // Updated cost
+export const LARGE_SILO_COST = 75000;
 export const BASE_INVENTORY_CAPACITY = 500; // Base capacity for crops/products
-export const SILO_CAPACITY_INCREASE = 5000; // Silo adds 5000 capacity
+export const SMALL_SILO_CAPACITY_INCREASE = 5000; 
+export const LARGE_SILO_CAPACITY_INCREASE = 20000; 
+
+export const ALL_AT_ONCE_FEE = 100; // Cost for mass actions
 
 export const FERTILIZERS: Fertilizer[] = [
   {
@@ -132,6 +140,34 @@ export const FERTILIZERS: Fertilizer[] = [
     coverage: 6,
     growthBoost: 0.30, // 30% instant growth boost
   },
+  // New High-Tier Fertilizers
+  {
+    id: 'super_fert',
+    name: 'Super Fertilizer',
+    icon: Gem,
+    cost: 500,
+    coverage: 9,
+    growthBoost: 0.40, // 40% instant growth boost
+    minLandRequirement: 'plot_7', // Requires Sunken Meadow (81 tiles)
+  },
+  {
+    id: 'mega_fert',
+    name: 'Mega Fertilizer',
+    icon: Diamond,
+    cost: 1500,
+    coverage: 16,
+    growthBoost: 0.50, // 50% instant growth boost
+    minLandRequirement: 'plot_12', // Requires High Ridge (196 tiles)
+  },
+  {
+    id: 'ultimate_fert',
+    name: 'Ultimate Fertilizer',
+    icon: Shield,
+    cost: 5000,
+    coverage: 25,
+    growthBoost: 0.75, // 75% instant growth boost
+    minLandRequirement: 'plot_17', // Requires The Summit (361 tiles)
+  },
 ];
 
 export const ANIMAL_PRODUCTS: AnimalProduct[] = [
@@ -143,6 +179,10 @@ export const ANIMAL_PRODUCTS: AnimalProduct[] = [
   { id: 'beef_meat', name: 'Beef Meat', icon: Beef, basePrice: 18 },
   { id: 'chicken_meat', name: 'Chicken Meat', icon: Drumstick, basePrice: 6 },
   { id: 'honey', name: 'Honey', icon: Bird, basePrice: 6 },
+  { id: 'goat_milk', name: 'Goat Milk', icon: Milk, basePrice: 10 },
+  { id: 'rabbit_fur', name: 'Rabbit Fur', icon: Feather, basePrice: 20 },
+  { id: 'turkey_meat', name: 'Turkey Meat', icon: Drumstick, basePrice: 9 },
+  { id: 'lamb_meat', name: 'Lamb Meat', icon: Beef, basePrice: 16 },
 ];
 
 // List of meat product IDs
@@ -159,6 +199,7 @@ export const RESTAURANTS: Restaurant[] = [
             'chicken_meat': 1.1, // 10% bonus
             'pork_meat': 1.05, // 5% bonus
             'beef_meat': 0.9, // 10% penalty
+            'turkey_meat': 1.15,
         }
     },
     {
@@ -170,6 +211,7 @@ export const RESTAURANTS: Restaurant[] = [
             'beef_meat': 1.3, // 30% bonus
             'pork_meat': 0.8, // 20% penalty
             'fish_meat': 1.1, // 10% bonus
+            'lamb_meat': 1.2,
         }
     },
     {
@@ -180,6 +222,7 @@ export const RESTAURANTS: Restaurant[] = [
         demand: {
             'fish_meat': 1.2, // 20% bonus
             'chicken_meat': 1.15, // 15% bonus
+            'turkey_meat': 1.0,
         }
     }
 ];
@@ -290,49 +333,84 @@ export const ANIMALS: Animal[] = [
     isMeatAnimal: false,
     weight: 0, minWeight: 0, maxWeight: 0, optimalWeight: 0, feedCost: 0, isFed: false,
   },
+  // New Animals
+  {
+    id: 'dairy_goat',
+    name: 'Dairy Goat',
+    icon: Milk,
+    purchaseCost: 180,
+    productionTime: 4,
+    product: ANIMAL_PRODUCTS.find(p => p.id === 'goat_milk')!,
+    quantity: 0,
+    daysUntilProduction: 4,
+    isMeatAnimal: false,
+    weight: 0, minWeight: 0, maxWeight: 0, optimalWeight: 0, feedCost: 0, isFed: false,
+  },
+  {
+    id: 'meat_turkey',
+    name: 'Meat Turkey',
+    icon: Drumstick,
+    purchaseCost: 100,
+    productionTime: 6,
+    product: ANIMAL_PRODUCTS.find(p => p.id === 'turkey_meat')!,
+    quantity: 0,
+    daysUntilProduction: 6,
+    isMeatAnimal: true,
+    weight: 3.0, minWeight: 1.5, maxWeight: 6.0, optimalWeight: 4.0, feedCost: 8, isFed: false,
+  },
+  {
+    id: 'rabbit',
+    name: 'Rabbit',
+    icon: Rabbit,
+    purchaseCost: 60,
+    productionTime: 3,
+    product: ANIMAL_PRODUCTS.find(p => p.id === 'rabbit_fur')!,
+    quantity: 0,
+    daysUntilProduction: 3,
+    isMeatAnimal: false,
+    weight: 0, minWeight: 0, maxWeight: 0, optimalWeight: 0, feedCost: 0, isFed: false,
+  },
+  {
+    id: 'meat_sheep',
+    name: 'Meat Sheep',
+    icon: Beef,
+    purchaseCost: 250,
+    productionTime: 8,
+    product: ANIMAL_PRODUCTS.find(p => p.id === 'lamb_meat')!,
+    quantity: 0,
+    daysUntilProduction: 8,
+    isMeatAnimal: true,
+    weight: 80, minWeight: 60, maxWeight: 120, optimalWeight: 90, feedCost: 30, isFed: false,
+  },
 ];
 
 export const CROPS: Crop[] = [
-  {
-    id: 'wheat',
-    name: 'Wheat',
-    icon: Wheat,
-    seedCost: 1,
-    growthTime: 5, // 5 days
-    baseYield: 10,
-    basePrice: 2,
-    optimalSeason: 'Spring',
-  },
-  {
-    id: 'corn',
-    name: 'Corn',
-    icon: Wheat, // Placeholder icon
-    seedCost: 3,
-    growthTime: 8, // 8 days
-    baseYield: 15,
-    basePrice: 3,
-    optimalSeason: 'Summer',
-  },
-  {
-    id: 'carrot',
-    name: 'Carrot',
-    icon: Carrot,
-    seedCost: 5,
-    growthTime: 6, // 6 days
-    baseYield: 12,
-    basePrice: 4,
-    optimalSeason: 'Autumn',
-  },
-  {
-    id: 'tomato',
-    name: 'Tomato',
-    icon: Apple, // Using Apple as a placeholder for Tomato
-    seedCost: 10,
-    growthTime: 10, // 10 days
-    baseYield: 20,
-    basePrice: 5,
-    optimalSeason: 'Summer',
-  },
+  { id: 'wheat', name: 'Wheat', icon: Wheat, seedCost: 1, growthTime: 5, baseYield: 10, basePrice: 2, optimalSeason: 'Spring' },
+  { id: 'corn', name: 'Corn', icon: Corn, seedCost: 3, growthTime: 8, baseYield: 15, basePrice: 3, optimalSeason: 'Summer' },
+  { id: 'carrot', name: 'Carrot', icon: Carrot, seedCost: 5, growthTime: 6, baseYield: 12, basePrice: 4, optimalSeason: 'Autumn' },
+  { id: 'tomato', name: 'Tomato', icon: Apple, seedCost: 10, growthTime: 10, baseYield: 20, basePrice: 5, optimalSeason: 'Summer' },
+  
+  // New Crops (20 total)
+  { id: 'potato', name: 'Potato', icon: Potato, seedCost: 4, growthTime: 7, baseYield: 18, basePrice: 3, optimalSeason: 'Spring' },
+  { id: 'onion', name: 'Onion', icon: Onion, seedCost: 6, growthTime: 9, baseYield: 14, basePrice: 5, optimalSeason: 'Autumn' },
+  { id: 'pepper', name: 'Pepper', icon: Pepper, seedCost: 12, growthTime: 12, baseYield: 25, basePrice: 6, optimalSeason: 'Summer' },
+  { id: 'mushroom', name: 'Mushroom', icon: Mushroom, seedCost: 8, growthTime: 5, baseYield: 10, basePrice: 7, optimalSeason: 'Autumn' },
+  { id: 'sunflower', name: 'Sunflower', icon: Sun, seedCost: 15, growthTime: 15, baseYield: 30, basePrice: 8, optimalSeason: 'Summer' },
+  { id: 'clover', name: 'Clover', icon: Clover, seedCost: 2, growthTime: 4, baseYield: 8, basePrice: 1, optimalSeason: 'Spring' },
+  { id: 'grape', name: 'Grape', icon: Grape, seedCost: 20, growthTime: 18, baseYield: 40, basePrice: 10, optimalSeason: 'Autumn' },
+  { id: 'cherry', name: 'Cherry', icon: Cherry, seedCost: 25, growthTime: 20, baseYield: 50, basePrice: 12, optimalSeason: 'Spring' },
+  { id: 'lemon', name: 'Lemon', icon: Lemon, seedCost: 30, growthTime: 22, baseYield: 60, basePrice: 15, optimalSeason: 'Summer' },
+  { id: 'coffee', name: 'Coffee Bean', icon: Coffee, seedCost: 40, growthTime: 25, baseYield: 70, basePrice: 20, optimalSeason: 'Summer' },
+  { id: 'pine', name: 'Pine Tree', icon: TreePine, seedCost: 50, growthTime: 30, baseYield: 80, basePrice: 25, optimalSeason: 'Winter' },
+  { id: 'oak', name: 'Oak Tree', icon: TreeDeciduous, seedCost: 60, growthTime: 35, baseYield: 90, basePrice: 30, optimalSeason: 'Autumn' },
+  { id: 'flower', name: 'Flower', icon: Flower, seedCost: 7, growthTime: 6, baseYield: 15, basePrice: 5, optimalSeason: 'Spring' },
+  { id: 'cabbage', name: 'Cabbage', icon: Leaf, seedCost: 9, growthTime: 10, baseYield: 20, basePrice: 4, optimalSeason: 'Spring' },
+  { id: 'cucumber', name: 'Cucumber', icon: Leaf, seedCost: 11, growthTime: 11, baseYield: 22, basePrice: 6, optimalSeason: 'Summer' },
+  { id: 'pumpkin', name: 'Pumpkin', icon: Carrot, seedCost: 18, growthTime: 16, baseYield: 35, basePrice: 9, optimalSeason: 'Autumn' },
+  { id: 'strawberry', name: 'Strawberry', icon: Apple, seedCost: 14, growthTime: 14, baseYield: 28, basePrice: 7, optimalSeason: 'Spring' },
+  { id: 'watermelon', name: 'Watermelon', icon: Apple, seedCost: 22, growthTime: 19, baseYield: 45, basePrice: 11, optimalSeason: 'Summer' },
+  { id: 'broccoli', name: 'Broccoli', icon: Leaf, seedCost: 16, growthTime: 13, baseYield: 32, basePrice: 8, optimalSeason: 'Autumn' },
+  { id: 'spinach', name: 'Spinach', icon: Leaf, seedCost: 3, growthTime: 5, baseYield: 10, basePrice: 2, optimalSeason: 'Spring' },
 ];
 
 // --- Utility Functions for Data Generation ---
@@ -354,8 +432,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 9, // 3x3 grid for simplicity
     basePrice: 0, // Inherited
     isOwned: true,
-    description: "The original plot. Well-balanced soil, perfect for starting out.",
-    soilType: ['wheat', 'corn', 'carrot', 'tomato'], // Mixed
+    description: "The original plot. Well-balanced soil, perfect for starting out with basic crops like Wheat and Potato.",
+    soilType: ['wheat', 'potato', 'clover', 'spinach'],
     tiles: createTiles(9, 'tile'),
   },
   {
@@ -364,8 +442,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 16, // 4x4 grid
     basePrice: 500,
     isOwned: false,
-    description: "Rich, loamy soil that retains moisture well. Ideal for root vegetables.",
-    soilType: ['carrot'],
+    description: "Rich, loamy soil that retains moisture well. Ideal for root vegetables like Carrot and Onion.",
+    soilType: ['carrot', 'onion'],
     tiles: createTiles(16, 'tile-n'),
   },
   {
@@ -374,8 +452,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 25, // 5x5 grid
     basePrice: 1500,
     isOwned: false,
-    description: "Dry, sandy soil that drains quickly. Best suited for grains.",
-    soilType: ['wheat'],
+    description: "Dry, sandy soil that drains quickly. Best suited for grains and hardy plants like Wheat and Cabbage.",
+    soilType: ['wheat', 'cabbage'],
     tiles: createTiles(25, 'tile-s'),
   },
   {
@@ -384,8 +462,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 36, // 6x6 grid
     basePrice: 4000,
     isOwned: false,
-    description: "Volcanic soil, high in nutrients. Excellent for fruit-bearing plants.",
-    soilType: ['tomato', 'corn'],
+    description: "Volcanic soil, high in nutrients. Excellent for fruit-bearing plants like Tomato and Pepper.",
+    soilType: ['tomato', 'pepper'],
     tiles: createTiles(36, 'tile-e'),
   },
   // 15 new plots start here
@@ -395,8 +473,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 49, // 7x7 grid
     basePrice: 8000,
     isOwned: false,
-    description: "Deep, fertile soil. Great for Wheat and Carrots.",
-    soilType: ['wheat', 'carrot'],
+    description: "Deep, fertile soil. Great for Wheat, Carrots, and early fruits like Strawberry.",
+    soilType: ['wheat', 'carrot', 'strawberry'],
     tiles: createTiles(49, 'tile-p5'),
   },
   {
@@ -405,8 +483,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 64, // 8x8 grid
     basePrice: 15000,
     isOwned: false,
-    description: "Moist, clay-heavy soil near the river. Favors Corn and Tomatoes.",
-    soilType: ['corn', 'tomato'],
+    description: "Moist, clay-heavy soil near the river. Favors Corn, Tomatoes, and Cucumber.",
+    soilType: ['corn', 'tomato', 'cucumber'],
     tiles: createTiles(64, 'tile-p6'),
   },
   {
@@ -415,8 +493,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 81, // 9x9 grid
     basePrice: 25000,
     isOwned: false,
-    description: "A balanced mix of all soil types, offering a slight boost to all crops.",
-    soilType: ['wheat', 'corn', 'carrot', 'tomato'], // Mixed
+    description: "A balanced mix of all soil types, offering a slight boost to all crops. Required for Super Fertilizer.",
+    soilType: ['wheat', 'corn', 'carrot', 'tomato', 'potato', 'onion', 'pepper', 'mushroom'], // Mixed
     tiles: createTiles(81, 'tile-p7'),
   },
   {
@@ -425,8 +503,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 100, // 10x10 grid
     basePrice: 40000,
     isOwned: false,
-    description: "Thin, rocky soil. Only the hardiest crops, like Wheat, thrive here.",
-    soilType: ['wheat'],
+    description: "Thin, rocky soil. Only the hardiest crops, like Wheat, Potato, and Pine, thrive here.",
+    soilType: ['wheat', 'potato', 'pine'],
     tiles: createTiles(100, 'tile-p8'),
   },
   {
@@ -435,8 +513,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 121, // 11x11 grid
     basePrice: 60000,
     isOwned: false,
-    description: "Excellent drainage, perfect for Carrots and Tomatoes.",
-    soilType: ['carrot', 'tomato'],
+    description: "Excellent drainage, perfect for Carrots, Tomatoes, and Sunflowers.",
+    soilType: ['carrot', 'tomato', 'sunflower'],
     tiles: createTiles(121, 'tile-p9'),
   },
   {
@@ -445,8 +523,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 144, // 12x12 grid
     basePrice: 90000,
     isOwned: false,
-    description: "Mineral-rich soil, highly beneficial for Corn.",
-    soilType: ['corn'],
+    description: "Mineral-rich soil, highly beneficial for Corn, Coffee, and Grapes.",
+    soilType: ['corn', 'coffee', 'grape'],
     tiles: createTiles(144, 'tile-p10'),
   },
   {
@@ -455,8 +533,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 169, // 13x13 grid
     basePrice: 130000,
     isOwned: false,
-    description: "Silt deposits make this soil highly fertile for all crops.",
-    soilType: ['wheat', 'corn', 'carrot', 'tomato'], // Mixed
+    description: "Silt deposits make this soil highly fertile for all crops, especially fruits like Cherry and Watermelon.",
+    soilType: ['cherry', 'watermelon', 'flower'],
     tiles: createTiles(169, 'tile-p11'),
   },
   {
@@ -465,8 +543,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 196, // 14x14 grid
     basePrice: 180000,
     isOwned: false,
-    description: "Exposed to sun and wind. Best for Wheat and Corn.",
-    soilType: ['wheat', 'corn'],
+    description: "Exposed to sun and wind. Best for Wheat, Corn, and Oak. Required for Mega Fertilizer.",
+    soilType: ['wheat', 'corn', 'oak'],
     tiles: createTiles(196, 'tile-p12'),
   },
   {
@@ -475,8 +553,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 225, // 15x15 grid
     basePrice: 250000,
     isOwned: false,
-    description: "Very wet soil, ideal for moisture-loving Tomatoes.",
-    soilType: ['tomato'],
+    description: "Very wet soil, ideal for moisture-loving Tomatoes, Cucumber, and Lemon.",
+    soilType: ['tomato', 'cucumber', 'lemon'],
     tiles: createTiles(225, 'tile-p13'),
   },
   {
@@ -485,8 +563,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 256, // 16x16 grid
     basePrice: 350000,
     isOwned: false,
-    description: "Cold, dense soil. Only Carrots can handle the conditions.",
-    soilType: ['carrot'],
+    description: "Cold, dense soil. Only Carrots, Broccoli, and Pine can handle the conditions.",
+    soilType: ['carrot', 'broccoli', 'pine'],
     tiles: createTiles(256, 'tile-p14'),
   },
   {
@@ -495,8 +573,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 289, // 17x17 grid
     basePrice: 500000,
     isOwned: false,
-    description: "High altitude, dry air. Favors Wheat and Carrots.",
-    soilType: ['wheat', 'carrot'],
+    description: "High altitude, dry air. Favors Wheat, Carrot, and Pumpkin.",
+    soilType: ['wheat', 'carrot', 'pumpkin'],
     tiles: createTiles(289, 'tile-p15'),
   },
   {
@@ -505,8 +583,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 324, // 18x18 grid
     basePrice: 750000,
     isOwned: false,
-    description: "Perfectly balanced, highly fertile soil. Excellent for all crops.",
-    soilType: ['wheat', 'corn', 'carrot', 'tomato'], // Mixed
+    description: "Perfectly balanced, highly fertile soil. Excellent for all crops, especially high-value ones.",
+    soilType: ['coffee', 'grape', 'cherry', 'lemon', 'watermelon'],
     tiles: createTiles(324, 'tile-p16'),
   },
   {
@@ -515,8 +593,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 361, // 19x19 grid
     basePrice: 1000000,
     isOwned: false,
-    description: "Extremely rich, dark soil. Best for Corn and Tomatoes.",
-    soilType: ['corn', 'tomato'],
+    description: "Extremely rich, dark soil. Best for Corn, Tomato, and Oak. Required for Ultimate Fertilizer.",
+    soilType: ['corn', 'tomato', 'oak'],
     tiles: createTiles(361, 'tile-p17'),
   },
   {
@@ -525,8 +603,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 400, // 20x20 grid
     basePrice: 1500000,
     isOwned: false,
-    description: "Vast, open land with deep, reliable soil. Good for Wheat.",
-    soilType: ['wheat'],
+    description: "Vast, open land with deep, reliable soil. Good for Wheat, Potato, and Cabbage.",
+    soilType: ['wheat', 'potato', 'cabbage'],
     tiles: createTiles(400, 'tile-p18'),
   },
   {
@@ -535,8 +613,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 441, // 21x21 grid
     basePrice: 2500000,
     isOwned: false,
-    description: "Untamed, but incredibly rich soil, boosting all crops significantly.",
-    soilType: ['wheat', 'corn', 'carrot', 'tomato'], // Mixed
+    description: "Untamed, but incredibly rich soil, boosting all crops significantly. The ultimate mixed plot.",
+    soilType: ['wheat', 'corn', 'carrot', 'tomato', 'potato', 'onion', 'pepper', 'mushroom', 'sunflower', 'clover', 'grape', 'cherry', 'lemon', 'coffee', 'pine', 'oak', 'flower', 'cabbage', 'cucumber', 'pumpkin', 'strawberry', 'watermelon', 'broccoli', 'spinach'], // All crops
     tiles: createTiles(441, 'tile-p19'),
   },
 ];
@@ -564,7 +642,8 @@ export const INITIAL_GAME_STATE: GameState = {
   ownedLand: INITIAL_LAND_PLOTS.filter(p => p.isOwned),
   ownedAnimals: [],
   hasButcherStand: false, // Initialize new property
-  hasSilo: false, // Initialize new property
+  hasSmallSilo: false, // Initialize new property
+  hasLargeSilo: false, // Initialize new property
   hasWaterPump: false, // Initialize new property
 };
 

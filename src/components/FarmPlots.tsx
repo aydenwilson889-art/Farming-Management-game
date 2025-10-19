@@ -5,7 +5,7 @@ import { LandPlot, PlotTile, Crop, getCropById, Season, getFertilizerById } from
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { Leaf, LandPlot as LandPlotIcon, Snowflake, Factory, Zap, Droplet, Check } from 'lucide-react';
+import { Leaf, LandPlot as LandPlotIcon, Snowflake, Factory, Zap, Droplet, Check, Gem, Diamond, Shield } from 'lucide-react';
 
 interface FarmPlotsProps {
   plots: LandPlot[];
@@ -51,6 +51,13 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, selectedFe
     // 2. It IS winter AND it's the greenhouse plot
     const isPlantingAllowed = !isWinter || isGreenhouse;
     const isOptimalSeason = crop && crop.optimalSeason === currentSeason;
+    
+    const getFertilizerIcon = (fertId: string) => {
+        if (fertId === 'super_fert') return Gem;
+        if (fertId === 'mega_fert') return Diamond;
+        if (fertId === 'ultimate_fert') return Shield;
+        return Droplet;
+    };
 
     if (tile.isReadyToHarvest && crop) {
       // Ready to Harvest
@@ -76,7 +83,12 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, selectedFe
           />
           <CropIcon className="w-6 h-6 text-green-900 z-10" />
           {isOptimalSeason && <Zap className="absolute top-0 right-0 w-3 h-3 text-yellow-400 z-20" title="Optimal Growth" />}
-          {tile.fertilizerId && <Droplet className="absolute bottom-0 right-0 w-3 h-3 text-blue-600 z-20" title="Fertilized" />}
+          {tile.fertilizerId && (
+            React.createElement(getFertilizerIcon(tile.fertilizerId), {
+              className: "absolute bottom-0 right-0 w-3 h-3 text-blue-600 z-20",
+              title: `Fertilized with ${getFertilizerById(tile.fertilizerId)?.name}`
+            })
+          )}
         </>
       );
       action = null;

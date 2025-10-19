@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, FERTILIZERS, Fertilizer, LandPlot, GREENHOUSE_COST, BUTCHER_STAND_COST, MEAT_PRODUCT_IDS, SILO_COST, WATER_PUMP_COST, SILO_CAPACITY_INCREASE } from '@/lib/game-data';
-import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf, Info, Droplet, LandPlot as LandPlotIcon, CheckCircle, Factory, Store, Zap, Warehouse, Waves } from 'lucide-react';
+import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, FERTILIZERS, Fertilizer, LandPlot, GREENHOUSE_COST, BUTCHER_STAND_COST, MEAT_PRODUCT_IDS, WATER_PUMP_COST, SMALL_SILO_COST, LARGE_SILO_COST, SMALL_SILO_CAPACITY_INCREASE, LARGE_SILO_CAPACITY_INCREASE, INITIAL_LAND_PLOTS } from '@/lib/game-data';
+import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf, Info, Droplet, LandPlot as LandPlotIcon, CheckCircle, Factory, Store, Zap, Warehouse, Waves, Gem, Diamond, Shield } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import ItemDetailsDialog from './ItemDetailsDialog';
@@ -19,7 +19,8 @@ interface FarmShopProps {
   availableLand: LandPlot[]; 
   isGreenhouseOwned: boolean; 
   hasButcherStand: boolean;
-  hasSilo: boolean; // New prop
+  hasSmallSilo: boolean; // Updated prop
+  hasLargeSilo: boolean; // Updated prop
   hasWaterPump: boolean; // New prop
   selectedCropId: string | null;
   selectedFertilizerId: string | null;
@@ -31,7 +32,8 @@ interface FarmShopProps {
   onBuyLand: (plot: LandPlot) => void; 
   onBuyGreenhouse: () => void; 
   onBuyButcherStand: () => void;
-  onBuySilo: () => void; // New handler
+  onBuySmallSilo: () => void; // Updated handler
+  onBuyLargeSilo: () => void; // Updated handler
   onBuyWaterPump: () => void; // New handler
 }
 
@@ -44,7 +46,8 @@ const FarmShop: React.FC<FarmShopProps> = ({
   availableLand,
   isGreenhouseOwned,
   hasButcherStand,
-  hasSilo, // Destructure new prop
+  hasSmallSilo, // Destructure updated prop
+  hasLargeSilo, // Destructure updated prop
   hasWaterPump, // Destructure new prop
   selectedCropId, 
   selectedFertilizerId, 
@@ -56,7 +59,8 @@ const FarmShop: React.FC<FarmShopProps> = ({
   onBuyLand,
   onBuyGreenhouse,
   onBuyButcherStand,
-  onBuySilo, // Use new handler
+  onBuySmallSilo, // Use updated handler
+  onBuyLargeSilo, // Use updated handler
   onBuyWaterPump, // Use new handler
 }) => {
   
@@ -99,8 +103,10 @@ const FarmShop: React.FC<FarmShopProps> = ({
   const unownedLand = availableLand.filter(p => !p.isOwned);
   const canAffordGreenhouse = cash >= GREENHOUSE_COST;
   const canAffordButcherStand = cash >= BUTCHER_STAND_COST;
-  const canAffordSilo = cash >= SILO_COST;
   const canAffordWaterPump = cash >= WATER_PUMP_COST;
+  
+  const canAffordSmallSilo = cash >= SMALL_SILO_COST;
+  const canAffordLargeSilo = cash >= LARGE_SILO_COST;
 
   const handleOpenDetails = (item: Crop | Animal | Fertilizer) => {
     setDetailsItem(item);
@@ -114,10 +120,24 @@ const FarmShop: React.FC<FarmShopProps> = ({
   
   const getSoilTypeDisplay = (soilType: string[]) => {
       if (soilType.length === 0) return "N/A";
-      if (soilType.length >= 4) return "Mixed (All Crops)";
+      if (soilType.length >= 10) return "Ultimate Mixed (All Crops)";
+      if (soilType.length >= 4) return "Mixed (Multiple Crops)";
       
       const cropNames = soilType.map(id => CROPS.find(c => c.id === id)?.name || id);
       return cropNames.join(', ');
+  };
+  
+  const checkLandRequirement = (fert: Fertilizer): { meetsRequirement: boolean, requiredPlotName: string | null } => {
+      if (!fert.minLandRequirement) {
+          return { meetsRequirement: true, requiredPlotName: null };
+      }
+      const requiredPlot = INITIAL_LAND_PLOTS.find(p => p.id === fert.minLandRequirement);
+      const meetsRequirement = requiredPlot ? ownedAnimals.some(a => a.id === requiredPlot.id) || availableLand.some(p => p.id === requiredPlot.id && p.isOwned) : false;
+      
+      return { 
+          meetsRequirement: meetsRequirement, 
+          requiredPlotName: requiredPlot?.name || null 
+      };
   };
 
 
@@ -141,7 +161,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
               <TabsTrigger value="sell-harvest">Sell</TabsTrigger>
             </TabsList>
             
-            {/* Buy Seeds Tab (Omitted for brevity) */}
+            {/* Buy Seeds Tab */}
             <TabsContent value="buy-seeds" className="mt-4 space-y-3">
               {CROPS.map((crop) => {
                 const canAfford = cash >= crop.seedCost;
@@ -194,7 +214,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
               })}
             </TabsContent>
 
-            {/* Buy Animals Tab (Omitted for brevity) */}
+            {/* Buy Animals Tab */}
             <TabsContent value="buy-animals" className="mt-4 space-y-3">
               {ANIMALS.map((animal) => {
                 const canAfford = cash >= animal.purchaseCost;
@@ -238,28 +258,41 @@ const FarmShop: React.FC<FarmShopProps> = ({
               })}
             </TabsContent>
             
-            {/* Buy Fertilizer Tab (Omitted for brevity) */}
+            {/* Buy Fertilizer Tab */}
             <TabsContent value="buy-fertilizer" className="mt-4 space-y-3">
               {FERTILIZERS.map((fert) => {
                 const canAfford = cash >= fert.cost;
                 const isSelected = selectedFertilizerId === fert.id;
                 const quantityOwned = fertilizerInventory[fert.id] || 0;
+                const { meetsRequirement, requiredPlotName } = checkLandRequirement(fert);
+                const isDisabled = !canAfford || !meetsRequirement;
                 
+                let Icon = Droplet;
+                if (fert.id === 'super_fert') Icon = Gem;
+                if (fert.id === 'mega_fert') Icon = Diamond;
+                if (fert.id === 'ultimate_fert') Icon = Shield;
+
                 return (
                   <div 
                     key={fert.id} 
                     className={cn(
                       "flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 border rounded-lg transition-colors space-y-2 sm:space-y-0",
-                      isSelected ? "bg-blue-100 border-blue-500 dark:bg-blue-900/30" : "hover:bg-muted/50"
+                      isSelected ? "bg-blue-100 border-blue-500 dark:bg-blue-900/30" : "hover:bg-muted/50",
+                      !meetsRequirement && "opacity-60"
                     )}
                   >
                     <div className="flex items-center space-x-3">
-                      <Droplet className="w-6 h-6 text-blue-500" />
+                      <Icon className="w-6 h-6 text-blue-500" />
                       <div>
                         <h4 className="font-semibold">{fert.name}</h4>
                         <p className="text-xs text-muted-foreground">
                           Cost: ${fert.cost} | Coverage: {fert.coverage} tiles | Owned: {quantityOwned}
                         </p>
+                        {!meetsRequirement && requiredPlotName && (
+                            <Badge variant="destructive" className="mt-1 text-xs">
+                                Requires: {requiredPlotName}
+                            </Badge>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -274,14 +307,14 @@ const FarmShop: React.FC<FarmShopProps> = ({
                       <Button
                         variant={isSelected ? "default" : "outline"}
                         onClick={() => onSelectFertilizer(isSelected ? null : fert.id)}
-                        disabled={quantityOwned === 0}
+                        disabled={quantityOwned === 0 || !meetsRequirement}
                         className="h-8 text-xs bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400"
                       >
                         {isSelected ? "Selected" : "Use"}
                       </Button>
                       <Button
                         onClick={() => onOpenPurchaseModal(fert)}
-                        disabled={!canAfford}
+                        disabled={isDisabled}
                         className="h-8 flex items-center space-x-1 text-xs bg-green-600 hover:bg-green-700"
                       >
                         <DollarSign className="w-3 h-3" />
@@ -299,31 +332,63 @@ const FarmShop: React.FC<FarmShopProps> = ({
                     <Factory className="w-5 h-5 mr-2 text-green-600" /> Infrastructure
                 </h3>
                 
-                {/* Silo Section */}
+                {/* Small Silo Section */}
                 <div className="p-3 border rounded-lg bg-card shadow-sm">
                     <div className="flex items-center justify-between">
                         <div className="space-y-1">
                             <h4 className="font-semibold flex items-center">
-                                <Warehouse className="w-4 h-4 mr-1 text-amber-700" /> Silo
+                                <Warehouse className="w-4 h-4 mr-1 text-amber-700" /> Small Silo
                             </h4>
-                            <p className="text-xs text-muted-foreground">Increases crop/product storage capacity by {SILO_CAPACITY_INCREASE.toLocaleString()} units.</p>
+                            <p className="text-xs text-muted-foreground">Increases crop/product storage capacity by {SMALL_SILO_CAPACITY_INCREASE.toLocaleString()} units.</p>
                         </div>
                         
-                        {hasSilo ? (
+                        {hasSmallSilo ? (
                             <div className="flex items-center space-x-2 text-green-600 font-semibold">
                                 <CheckCircle className="w-5 h-5" />
                                 <span>Owned</span>
                             </div>
                         ) : (
                             <div className="flex items-center space-x-2">
-                                <p className="text-sm font-medium mr-2">Cost: ${SILO_COST.toLocaleString()}</p>
+                                <p className="text-sm font-medium mr-2">Cost: ${SMALL_SILO_COST.toLocaleString()}</p>
                                 <Button
-                                    onClick={onBuySilo}
-                                    disabled={!canAffordSilo}
+                                    onClick={onBuySmallSilo}
+                                    disabled={!canAffordSmallSilo}
                                     className="h-8 flex items-center space-x-1"
                                 >
                                     <DollarSign className="w-4 h-4" />
-                                    <span>{canAffordSilo ? 'Purchase' : 'Cannot Afford'}</span>
+                                    <span>{canAffordSmallSilo ? 'Purchase' : 'Cannot Afford'}</span>
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+                
+                {/* Large Silo Section */}
+                <div className="p-3 border rounded-lg bg-card shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <h4 className="font-semibold flex items-center">
+                                <Warehouse className="w-4 h-4 mr-1 text-amber-700" /> Large Silo
+                            </h4>
+                            <p className="text-xs text-muted-foreground">Massively increases crop/product storage capacity by {LARGE_SILO_CAPACITY_INCREASE.toLocaleString()} units.</p>
+                        </div>
+                        
+                        {hasLargeSilo ? (
+                            <div className="flex items-center space-x-2 text-green-600 font-semibold">
+                                <CheckCircle className="w-5 h-5" />
+                                <span>Owned</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center space-x-2">
+                                <p className="text-sm font-medium mr-2">Cost: ${LARGE_SILO_COST.toLocaleString()}</p>
+                                <Button
+                                    onClick={onBuyLargeSilo}
+                                    disabled={!canAffordLargeSilo || !hasSmallSilo}
+                                    className="h-8 flex items-center space-x-1"
+                                    title={!hasSmallSilo ? "Requires Small Silo first." : ""}
+                                >
+                                    <DollarSign className="w-4 h-4" />
+                                    <span>{canAffordLargeSilo ? (hasSmallSilo ? 'Purchase' : 'Requires Small Silo') : 'Cannot Afford'}</span>
                                 </Button>
                             </div>
                         )}
@@ -464,7 +529,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
                 )}
             </TabsContent>
 
-            {/* Sell Tab Container */}
+            {/* Sell Tab Container (omitted for brevity, no changes needed here) */}
             <TabsContent value="sell-harvest" className="mt-4 space-y-6">
               
               {/* Sub-section: Sell Harvest/Products */}
@@ -536,7 +601,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
                   <PawPrint className="w-5 h-5 mr-2" /> Livestock (Direct Sale)
                 </h4>
                 <p className="text-sm text-muted-foreground">
-                    Only non-meat animals (Layer Hens, Milk Cows, Sheep, Bee Hives) can be sold directly. Meat animals must be butchered.
+                    Only non-meat animals (Layer Hens, Milk Cows, Sheep, Bee Hives, Dairy Goats, Rabbits) can be sold directly. Meat animals must be butchered.
                 </p>
                 {ownedAnimals.filter(a => !a.isMeatAnimal).length === 0 ? (
                   <p className="text-center text-muted-foreground py-2">No non-meat animals available for direct sale.</p>
