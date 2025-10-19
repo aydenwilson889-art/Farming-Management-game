@@ -187,6 +187,7 @@ const FarmManager: React.FC = () => {
             fertilizerInventory={gameState.fertilizerInventory} // Pass fertilizer inventory
             ownedAnimals={gameState.ownedAnimals}
             selectedCropId={selectedCropId}
+            selectedFertilizerId={selectedFertilizerId}
             onSelectCrop={handleSelectCrop} // Use new handler
             onSelectFertilizer={handleSelectFertilizer} // New handler for selecting fertilizer
             onOpenPurchaseModal={handleOpenPurchaseModal}

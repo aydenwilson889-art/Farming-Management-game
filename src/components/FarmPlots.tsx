@@ -86,6 +86,7 @@ const FarmPlots: React.FC<FarmPlotsProps> = ({ plots, selectedCropId, selectedFe
       if (isWinter && !isGreenhouse) {
         tileClasses = cn(tileClasses, "bg-blue-100 border-blue-300 cursor-not-allowed");
         content = <Snowflake className="w-6 h-6 text-blue-500 z-10" />;
+        action = null;
         tooltip = `${crop.name} is frozen! Growth stopped.`;
       }
       
