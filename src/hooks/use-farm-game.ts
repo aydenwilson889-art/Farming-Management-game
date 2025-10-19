@@ -28,18 +28,19 @@ export const calculatePurchaseDetails = (item: Crop | Animal | Fertilizer | Pet,
     let costPerUnit: number;
     let type: PurchaseDetails['type'];
 
+    // Determine type and cost
     if ('seedCost' in item) {
         costPerUnit = (item as Crop).seedCost;
         type = 'seed';
-    } else if ('purchaseCost' in item && !('happinessBoost' in item)) {
+    } else if ('purchaseCost' in item && 'isDog' in item) {
+        costPerUnit = (item as Pet).purchaseCost;
+        type = 'pet';
+    } else if ('purchaseCost' in item) {
         costPerUnit = (item as Animal).purchaseCost;
         type = 'animal';
     } else if ('cost' in item) {
         costPerUnit = (item as Fertilizer).cost;
         type = 'fertilizer';
-    } else if ('happinessBoost' in item) {
-        costPerUnit = (item as Pet).purchaseCost;
-        type = 'pet';
     } else {
         // Should not happen with current item types
         costPerUnit = 0;
@@ -203,7 +204,7 @@ export function useFarmGame() {
         const totalPetFeedCost = currentState.ownedPets.reduce((sum, pet) => sum + pet.dailyFeedCost, 0);
         newCash -= totalPetFeedCost;
         if (totalPetFeedCost > 0) {
-            showError(`Paid $${totalPetFeedCost.toLocaleString()} for pet feed.`);
+            // Note: We don't record this in purchase history as it's a recurring daily cost, not a one-time purchase.
         }
 
 
@@ -698,6 +699,7 @@ export function useFarmGame() {
       
       // Calculate total herding boost from trained dogs and horses
       ownedPets.forEach(pet => {
+          // Only apply boost if the pet was fed today AND (it's a dog that is trained OR it's a horse)
           if (pet.isFed && (pet.isDog ? pet.isTrained : true)) {
               totalBoost += pet.herdingBoost;
           }
@@ -817,6 +819,7 @@ export function useFarmGame() {
           // Apply Herding Boost to meat sales (if pets are fed/trained)
           let totalBoost = 0;
           prev.ownedPets.forEach(pet => {
+              // Only apply boost if the pet was fed today AND (it's a dog that is trained OR it's a horse)
               if (pet.isFed && (pet.isDog ? pet.isTrained : true)) {
                   totalBoost += pet.herdingBoost;
               }
