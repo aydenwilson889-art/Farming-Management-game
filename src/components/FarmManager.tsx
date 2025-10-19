@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { LandPlot, Crop, Animal, SEASONS, getCropById, Fertilizer, getFertilizerById, BASE_INVENTORY_CAPACITY, SILO_CAPACITY_INCREASE, APP_TITLE } from '@/lib/game-data';
-import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud, ChevronDown, Droplet, Egg, Drumstick, Store, Warehouse, Waves, Heart, History } from 'lucide-react';
+import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud, ChevronDown, Droplet, Egg, Drumstick, Store, Warehouse, Waves, Heart, History, Dog } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
