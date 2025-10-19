@@ -165,7 +165,7 @@ export const PETS: Pet[] = [
     {
         id: 'horse_riding',
         name: 'Riding Horse',
-        icon: Horse,
+        icon: Carrot, // Replaced Horse with Carrot
         purchaseCost: 2500,
         happinessBoost: 25,
         dailyFeedCost: 20,
