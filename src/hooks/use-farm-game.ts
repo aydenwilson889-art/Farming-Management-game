@@ -699,8 +699,8 @@ export function useFarmGame() {
       
       // Calculate total herding boost from trained dogs and horses
       ownedPets.forEach(pet => {
-          // Only apply boost if the pet was fed today AND (it's a dog that is trained OR it's a horse)
-          if (pet.isFed && (pet.isDog ? pet.isTrained : true)) {
+          // Passive boost: Check training status, ignore daily feeding status
+          if (pet.isDog ? pet.isTrained : true) {
               totalBoost += pet.herdingBoost;
           }
       });
@@ -816,11 +816,11 @@ export function useFarmGame() {
           const basePrice = product.basePrice;
           const multiplier = restaurant.demand[productId] || 1.0; // Default multiplier is 1.0
           
-          // Apply Herding Boost to meat sales (if pets are fed/trained)
+          // Apply Herding Boost to meat sales (if pets are owned/trained)
           let totalBoost = 0;
           prev.ownedPets.forEach(pet => {
-              // Only apply boost if the pet was fed today AND (it's a dog that is trained OR it's a horse)
-              if (pet.isFed && (pet.isDog ? pet.isTrained : true)) {
+              // Passive boost: Check training status, ignore daily feeding status
+              if (pet.isDog ? pet.isTrained : true) {
                   totalBoost += pet.herdingBoost;
               }
           });
