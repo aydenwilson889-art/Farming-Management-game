@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { LandPlot, Crop, Animal, SEASONS, getCropById, Fertilizer, getFertilizerById, BASE_INVENTORY_CAPACITY, SILO_CAPACITY_INCREASE } from '@/lib/game-data';
-import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud, ChevronDown, Droplet, Egg, Drumstick, Store, Warehouse, Waves } from 'lucide-react';
+import { LandPlot, Crop, Animal, SEASONS, getCropById, Fertilizer, getFertilizerById, BASE_INVENTORY_CAPACITY, SILO_CAPACITY_INCREASE, APP_TITLE } from '@/lib/game-data';
+import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud, ChevronDown, Droplet, Egg, Drumstick, Store, Warehouse, Waves, Heart, History } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,7 +14,9 @@ import AnimalFeeding from './AnimalFeeding';
 import MeatSales from './MeatSales';
 import PurchaseModal from './PurchaseModal';
 import AdminPanel from './AdminPanel';
-import MassActionPanel from './MassActionPanel'; // Import new component
+import MassActionPanel from './MassActionPanel';
+import PetManagement from './PetManagement'; // Import new component
+import PurchaseHistory from './PurchaseHistory'; // Import new component
 import { useFarmGame, PurchaseDetails } from '@/hooks/use-farm-game';
 import { showSuccess, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
@@ -30,19 +32,22 @@ const FarmManager: React.FC = () => {
     handleSellItem,
     handleSellMeatToRestaurant,
     handleTileAction,
-    handlePlantAll, // New handler
-    handleHarvestAll, // New handler
+    handlePlantAll,
+    handleHarvestAll,
     handleBuyLand,
     handleBuyGreenhouse,
     handleBuyButcherStand,
-    handleBuySmallSilo, // Updated handler
-    handleBuyLargeSilo, // Updated handler
+    handleBuySmallSilo,
+    handleBuyLargeSilo,
     handleBuyWaterPump,
     handleApplyFertilizer,
+    handleFeedPet, // New handler
+    handlePlayWithPet, // New handler
+    handleTrainDog, // New handler
     adjustCash,
     adjustDay,
     adjustSeason,
-    calculateInventoryCapacity, // New utility function
+    calculateInventoryCapacity,
   } = useFarmGame();
 
   const [selectedCropId, setSelectedCropId] = useState<string | null>(null);
@@ -130,12 +135,16 @@ const FarmManager: React.FC = () => {
         <CardHeader className="flex flex-row items-center justify-between p-4 flex-wrap gap-4">
           <CardTitle className="text-3xl font-bold flex items-center">
             <Tractor className="w-8 h-8 mr-3" />
-            Grandpa's Legacy Farm Simulator
+            {APP_TITLE}
           </CardTitle>
           <div className="flex space-x-6 flex-wrap gap-4">
             <div className="flex items-center space-x-2">
               <DollarSign className="w-5 h-5" />
               <span className="text-xl font-semibold">Cash: ${gameState.cash.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Heart className="w-5 h-5 text-red-400 fill-red-400" />
+              <span className="text-xl font-semibold">Happiness: {gameState.happiness}%</span>
             </div>
             <div className="flex items-center space-x-2">
               <SeasonIcon className="w-5 h-5" />
@@ -194,24 +203,28 @@ const FarmManager: React.FC = () => {
         onApplyFertilizer={handleApplyFertilizer}
       />
       
-      {/* 2. Livestock Management Tabs Card */}
+      {/* 2. Livestock & Pet Management Tabs Card */}
       <Card className="w-full shadow-lg">
         <CardHeader>
             <CardTitle className="text-2xl flex items-center">
                 <PawPrint className="w-6 h-6 mr-2" />
-                Livestock Management
+                Animal & Pet Management
             </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
             <Tabs defaultValue="production">
-                <TabsList className="grid w-full grid-cols-3 h-auto">
+                <TabsList className="grid w-full grid-cols-4 h-auto">
                     <TabsTrigger value="production" className="flex items-center space-x-1">
                         <Egg className="w-4 h-4" />
-                        <span>Product Production</span>
+                        <span>Product Animals</span>
                     </TabsTrigger>
                     <TabsTrigger value="meat" className="flex items-center space-x-1">
                         <Drumstick className="w-4 h-4" />
-                        <span>Meat Management</span>
+                        <span>Meat Animals</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="pets" className="flex items-center space-x-1">
+                        <Dog className="w-4 h-4" />
+                        <span>Pets</span>
                     </TabsTrigger>
                     <TabsTrigger value="sales" className="flex items-center space-x-1" disabled={!gameState.hasButcherStand}>
                         <Store className="w-4 h-4" />
@@ -229,6 +242,16 @@ const FarmManager: React.FC = () => {
                         cash={gameState.cash}
                         onFeedAnimal={handleFeedAnimal}
                         onButcherAnimal={handleButcherAnimal}
+                    />
+                </TabsContent>
+                
+                <TabsContent value="pets" className="p-4 pt-4">
+                    <PetManagement
+                        ownedPets={gameState.ownedPets}
+                        cash={gameState.cash}
+                        onFeedPet={handleFeedPet}
+                        onPlayWithPet={handlePlayWithPet}
+                        onTrainDog={handleTrainDog}
                     />
                 </TabsContent>
 
@@ -253,17 +276,18 @@ const FarmManager: React.FC = () => {
         freezerInventory={gameState.freezerInventory}
         fertilizerInventory={gameState.fertilizerInventory} 
         ownedAnimals={gameState.ownedAnimals}
+        ownedPets={gameState.ownedPets} // Pass pet data
         availableLand={availableLand} 
         isGreenhouseOwned={!!gameState.greenhousePlot} 
         hasButcherStand={gameState.hasButcherStand}
-        hasSmallSilo={gameState.hasSmallSilo} // Pass updated prop
-        hasLargeSilo={gameState.hasLargeSilo} // Pass updated prop
+        hasSmallSilo={gameState.hasSmallSilo}
+        hasLargeSilo={gameState.hasLargeSilo}
         hasWaterPump={gameState.hasWaterPump} 
         onBuyLand={handleBuyLand} 
         onBuyGreenhouse={handleBuyGreenhouse} 
         onBuyButcherStand={handleBuyButcherStand}
-        onBuySmallSilo={handleBuySmallSilo} // Pass updated handler
-        onBuyLargeSilo={handleBuyLargeSilo} // Pass updated handler
+        onBuySmallSilo={handleBuySmallSilo}
+        onBuyLargeSilo={handleBuyLargeSilo}
         onBuyWaterPump={handleBuyWaterPump} 
         selectedCropId={selectedCropId}
         selectedFertilizerId={selectedFertilizerId}
@@ -274,7 +298,20 @@ const FarmManager: React.FC = () => {
         onSellAnimal={handleSellAnimal}
       />
       
-      {/* 4. Collapsible Admin Panel */}
+      {/* 4. Purchase History */}
+      <Card className="w-full shadow-lg">
+        <CardHeader>
+            <CardTitle className="text-2xl flex items-center">
+                <History className="w-6 h-6 mr-2" />
+                Purchase History
+            </CardTitle>
+        </CardHeader>
+        <CardContent>
+            <PurchaseHistory history={gameState.purchaseHistory} />
+        </CardContent>
+      </Card>
+
+      {/* 5. Collapsible Admin Panel */}
       <Collapsible open={isAdminOpen} onOpenChange={setIsAdminOpen} className="w-full">
         <div className="flex items-center justify-between space-x-4 px-4 py-2 border rounded-md bg-destructive/10">
           <h4 className="text-lg font-semibold text-destructive">

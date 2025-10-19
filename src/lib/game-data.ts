@@ -1,4 +1,4 @@
-import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet, Beef, Drumstick, Factory, Utensils, ChefHat, Soup, UtensilsCrossed, Warehouse, Waves, Grape, Cherry, Coffee, TreeDeciduous, Sun, Gem, Diamond, Shield, Leaf } from 'lucide-react';
+import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet, Beef, Drumstick, Factory, Utensils, ChefHat, Soup, UtensilsCrossed, Warehouse, Waves, Grape, Cherry, Coffee, TreeDeciduous, Sun, Gem, Diamond, Shield, Leaf, Dog, Horse, Heart, History } from 'lucide-react';
 
 // --- Types ---
 
@@ -79,6 +79,28 @@ export interface Restaurant {
     description: string;
 }
 
+export interface Pet {
+    id: string;
+    name: string;
+    icon: LucideIcon;
+    purchaseCost: number;
+    happinessBoost: number; // Happiness gained per interaction
+    dailyFeedCost: number;
+    isDog: boolean;
+    isTrained: boolean; // Only for dogs
+    herdingBoost: number; // Multiplier applied to product price (e.g., 0.10 for 10%)
+    isFed: boolean;
+}
+
+export interface PurchaseRecord {
+    id: string;
+    day: number;
+    item: string;
+    quantity: number;
+    cost: number;
+    type: 'seed' | 'animal' | 'fertilizer' | 'land' | 'infrastructure' | 'pet';
+}
+
 export interface GameState {
   cash: number;
   day: number;
@@ -89,6 +111,9 @@ export interface GameState {
   fertilizerInventory: Record<string, number>; // FertilizerId -> Quantity
   ownedLand: LandPlot[];
   ownedAnimals: Animal[];
+  ownedPets: Pet[]; // New property
+  happiness: number; // 0 to 100
+  purchaseHistory: PurchaseRecord[]; // New property
   hasButcherStand: boolean; // New property for Personal Butcher Stand
   hasSmallSilo: boolean; // Updated Silo property
   hasLargeSilo: boolean; // Updated Silo property
@@ -97,6 +122,7 @@ export interface GameState {
 
 // --- Constants ---
 
+export const APP_TITLE = "American Farm Nation"; // New Title
 export const SEASONS: Season[] = ['Spring', 'Summer', 'Autumn', 'Winter'];
 export const DAYS_PER_SEASON = 7;
 export const TAX_RATE = 0.10; // 10% tax
@@ -114,6 +140,41 @@ export const SMALL_SILO_CAPACITY_INCREASE = 5000;
 export const LARGE_SILO_CAPACITY_INCREASE = 20000; 
 
 export const ALL_AT_ONCE_FEE = 100; // Cost for mass actions
+
+// Pet Constants
+export const MAX_HAPPINESS = 100;
+export const HAPPINESS_DECAY_RATE = 5; // Happiness lost per day if no interaction
+export const DOG_TRAINING_COST = 500;
+export const DOG_TREAT_COST = 50;
+export const DOG_HERDING_BOOST = 0.15; // 15% price boost for livestock products
+export const HORSE_HERDING_BOOST = 0.05; // 5% price boost for livestock products
+
+export const PETS: Pet[] = [
+    {
+        id: 'dog_shepherd',
+        name: 'Shepherd Dog',
+        icon: Dog,
+        purchaseCost: 1000,
+        happinessBoost: 15,
+        dailyFeedCost: 10,
+        isDog: true,
+        isTrained: false,
+        herdingBoost: DOG_HERDING_BOOST,
+        isFed: false,
+    },
+    {
+        id: 'horse_riding',
+        name: 'Riding Horse',
+        icon: Horse,
+        purchaseCost: 2500,
+        happinessBoost: 25,
+        dailyFeedCost: 20,
+        isDog: false,
+        isTrained: true, // Horses are always 'trained' for riding/herding
+        herdingBoost: HORSE_HERDING_BOOST,
+        isFed: false,
+    },
+];
 
 export const FERTILIZERS: Fertilizer[] = [
   {
@@ -641,6 +702,9 @@ export const INITIAL_GAME_STATE: GameState = {
   fertilizerInventory: {}, // New inventory for fertilizer
   ownedLand: INITIAL_LAND_PLOTS.filter(p => p.isOwned),
   ownedAnimals: [],
+  ownedPets: [], // Initialize owned pets
+  happiness: 50, // Starting happiness
+  purchaseHistory: [], // Initialize purchase history
   hasButcherStand: false, // Initialize new property
   hasSmallSilo: false, // Initialize new property
   hasLargeSilo: false, // Initialize new property
@@ -664,6 +728,10 @@ export const getFertilizerById = (id: string): Fertilizer | undefined => {
 
 export const getRestaurantById = (id: string): Restaurant | undefined => {
     return RESTAURANTS.find(r => r.id === id);
+};
+
+export const getPetById = (id: string): Pet | undefined => {
+    return PETS.find(p => p.id === id);
 };
 
 /**

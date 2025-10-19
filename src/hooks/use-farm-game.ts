@@ -3,7 +3,8 @@ import {
   INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS, Animal, ANIMALS, getAnimalProductById, 
   SEASONS, DAYS_PER_SEASON, TAX_RATE, INITIAL_GREENHOUSE_PLOT, GREENHOUSE_COST, Season, Fertilizer, getFertilizerById,
   calculateMeatPriceMultiplier, BUTCHER_STAND_COST, MEAT_PRODUCT_IDS, getRestaurantById, Restaurant, GameState,
-  WATER_PUMP_COST, BASE_INVENTORY_CAPACITY, SMALL_SILO_COST, LARGE_SILO_COST, SMALL_SILO_CAPACITY_INCREASE, LARGE_SILO_CAPACITY_INCREASE, ALL_AT_ONCE_FEE
+  WATER_PUMP_COST, BASE_INVENTORY_CAPACITY, SMALL_SILO_COST, LARGE_SILO_COST, SMALL_SILO_CAPACITY_INCREASE, LARGE_SILO_CAPACITY_INCREASE, ALL_AT_ONCE_FEE,
+  Pet, getPetById, PETS, MAX_HAPPINESS, HAPPINESS_DECAY_RATE, DOG_TRAINING_COST, DOG_TREAT_COST, PurchaseRecord
 } from '@/lib/game-data';
 import { RNG_EVENTS, RNGEvent } from '@/lib/rng-events';
 import { showSuccess, showError } from '@/utils/toast';
@@ -13,8 +14,8 @@ const SOIL_BONUS_MULTIPLIER = 1.15; // 15% growth bonus for optimal soil
 const WATER_PUMP_GROWTH_BONUS = 0.10; // 10% daily growth bonus from water pump
 
 export interface PurchaseDetails {
-    type: 'seed' | 'animal' | 'fertilizer';
-    item: Crop | Animal | Fertilizer;
+    type: 'seed' | 'animal' | 'fertilizer' | 'pet' | 'land' | 'infrastructure';
+    item: Crop | Animal | Fertilizer | Pet | LandPlot | { name: string, cost: number };
     quantity: number;
     costPerUnit: number;
     discountRate: number;
@@ -23,19 +24,26 @@ export interface PurchaseDetails {
     taxAmount: number;
 }
 
-export const calculatePurchaseDetails = (item: Crop | Animal | Fertilizer, quantity: number): PurchaseDetails => {
+export const calculatePurchaseDetails = (item: Crop | Animal | Fertilizer | Pet, quantity: number): PurchaseDetails => {
     let costPerUnit: number;
-    let type: 'seed' | 'animal' | 'fertilizer';
+    let type: PurchaseDetails['type'];
 
     if ('seedCost' in item) {
         costPerUnit = (item as Crop).seedCost;
         type = 'seed';
-    } else if ('purchaseCost' in item) {
+    } else if ('purchaseCost' in item && !('happinessBoost' in item)) {
         costPerUnit = (item as Animal).purchaseCost;
         type = 'animal';
-    } else {
+    } else if ('cost' in item) {
         costPerUnit = (item as Fertilizer).cost;
         type = 'fertilizer';
+    } else if ('happinessBoost' in item) {
+        costPerUnit = (item as Pet).purchaseCost;
+        type = 'pet';
+    } else {
+        // Should not happen with current item types
+        costPerUnit = 0;
+        type = 'seed'; 
     }
     
     // Apply bulk discount if quantity > 1
@@ -113,6 +121,15 @@ export function useFarmGame() {
   const [gameState, setGameState] = useState(INITIAL_GAME_STATE);
   const [availableLand, setAvailableLand] = useState(INITIAL_LAND_PLOTS);
 
+  // --- Purchase History Recorder ---
+  const recordPurchase = useCallback((record: Omit<PurchaseRecord, 'id'>) => {
+      setGameState(prev => ({
+          ...prev,
+          purchaseHistory: [{ ...record, id: Date.now().toString() + Math.random() }, ...prev.purchaseHistory],
+      }));
+  }, []);
+
+
   // --- Admin/External Adjustment Functions ---
 
   const adjustCash = useCallback((newCash: number) => {
@@ -169,7 +186,28 @@ export function useFarmGame() {
             showError(`Taxes collected! Paid $${taxAmount.toLocaleString()} (10% of cash).`);
         }
         
-        // 3. Advance Crop Growth Stages
+        // 3. Happiness Decay & Pet Feeding Costs
+        let newHappiness = Math.max(0, currentState.happiness - HAPPINESS_DECAY_RATE);
+        let newOwnedPets = currentState.ownedPets.map(pet => {
+            if (!pet.isFed) {
+                // If not fed, happiness penalty
+                newHappiness = Math.max(0, newHappiness - 10);
+            } else {
+                // Reset fed status for next day
+                return { ...pet, isFed: false };
+            }
+            return pet;
+        });
+        
+        // Deduct daily pet feed costs
+        const totalPetFeedCost = currentState.ownedPets.reduce((sum, pet) => sum + pet.dailyFeedCost, 0);
+        newCash -= totalPetFeedCost;
+        if (totalPetFeedCost > 0) {
+            showError(`Paid $${totalPetFeedCost.toLocaleString()} for pet feed.`);
+        }
+
+
+        // 4. Advance Crop Growth Stages
         const isWinter = newSeason === 'Winter';
         const hasWaterPump = currentState.hasWaterPump;
 
@@ -231,7 +269,7 @@ export function useFarmGame() {
         const newOwnedLand = currentState.ownedLand.map(processPlotGrowth);
         const newGreenhousePlot = currentState.greenhousePlot ? processPlotGrowth(currentState.greenhousePlot) : null;
         
-        // 4. Advance Animal Production & Weight Management
+        // 5. Advance Animal Production & Weight Management
         let newInventory = { ...currentState.inventory };
         const newOwnedAnimals = currentState.ownedAnimals.map(animal => {
           
@@ -290,7 +328,9 @@ export function useFarmGame() {
           cash: newCash,
           ownedLand: newOwnedLand,
           greenhousePlot: newGreenhousePlot,
-          ownedAnimals: newOwnedAnimals.map(a => a.isMeatAnimal ? a : { ...a, daysUntilProduction: a.daysUntilProduction }), // Ensure non-meat animals update daysUntilProduction correctly
+          ownedAnimals: newOwnedAnimals.map(a => a.isMeatAnimal ? a : { ...a, daysUntilProduction: a.daysUntilProduction }),
+          ownedPets: newOwnedPets,
+          happiness: Math.min(MAX_HAPPINESS, newHappiness),
           inventory: newInventory,
         };
       });
@@ -299,41 +339,92 @@ export function useFarmGame() {
     return () => clearInterval(interval);
   }, []);
   
-  // --- New Animal Handlers ---
+  // --- Pet Handlers ---
   
-  const handleFeedAnimal = useCallback((animalId: string) => {
-    setGameState(prev => {
-        const animalIndex = prev.ownedAnimals.findIndex(a => a.id === animalId);
-        if (animalIndex === -1) return prev;
-        
-        const animal = prev.ownedAnimals[animalIndex];
-        if (!animal.isMeatAnimal) return prev;
-        
-        const totalFeedCost = animal.feedCost * animal.quantity;
-        
-        if (prev.cash < totalFeedCost) {
-            showError(`Cannot afford to feed ${animal.name}s. Cost: $${totalFeedCost}.`);
-            return prev;
-        }
-        
-        if (animal.isFed) {
-            showError(`${animal.name}s have already been fed today.`);
-            return prev;
-        }
-        
-        const newOwnedAnimals = prev.ownedAnimals.map((a, index) => 
-            index === animalIndex ? { ...a, isFed: true } : a
-        );
-        
-        showSuccess(`Fed ${animal.quantity} ${animal.name}(s) for $${totalFeedCost}.`);
-        
-        return {
-            ...prev,
-            cash: prev.cash - totalFeedCost,
-            ownedAnimals: newOwnedAnimals,
-        };
-    });
+  const handleFeedPet = useCallback((petId: string) => {
+      setGameState(prev => {
+          const petIndex = prev.ownedPets.findIndex(p => p.id === petId);
+          if (petIndex === -1) return prev;
+          
+          const pet = prev.ownedPets[petIndex];
+          
+          if (prev.cash < pet.dailyFeedCost) {
+              showError(`Cannot afford to feed ${pet.name}. Cost: $${pet.dailyFeedCost}.`);
+              return prev;
+          }
+          if (pet.isFed) {
+              showError(`${pet.name} has already been fed today.`);
+              return prev;
+          }
+          
+          const newOwnedPets = prev.ownedPets.map((p, index) => 
+              index === petIndex ? { ...p, isFed: true } : p
+          );
+          
+          showSuccess(`Fed ${pet.name} for $${pet.dailyFeedCost}.`);
+          
+          return {
+              ...prev,
+              cash: prev.cash - pet.dailyFeedCost,
+              ownedPets: newOwnedPets,
+          };
+      });
   }, []);
+  
+  const handlePlayWithPet = useCallback((petId: string) => {
+      setGameState(prev => {
+          const pet = prev.ownedPets.find(p => p.id === petId);
+          if (!pet) return prev;
+          
+          // Apply happiness boost
+          const newHappiness = Math.min(MAX_HAPPINESS, prev.happiness + pet.happinessBoost);
+          
+          showSuccess(`Played with ${pet.name}! Happiness increased by ${pet.happinessBoost}%.`);
+          
+          return {
+              ...prev,
+              happiness: newHappiness,
+          };
+      });
+  }, []);
+  
+  const handleTrainDog = useCallback((petId: string) => {
+      setGameState(prev => {
+          const petIndex = prev.ownedPets.findIndex(p => p.id === petId);
+          if (petIndex === -1) return prev;
+          
+          const dog = prev.ownedPets[petIndex];
+          
+          if (!dog.isDog || dog.isTrained) return prev;
+          
+          if (prev.cash < DOG_TRAINING_COST) {
+              showError(`Cannot afford dog training. Requires $${DOG_TRAINING_COST}.`);
+              return prev;
+          }
+          
+          const newOwnedPets = prev.ownedPets.map((p, index) => 
+              index === petIndex ? { ...p, isTrained: true } : p
+          );
+          
+          showSuccess(`${dog.name} is now trained for herding! Livestock product quality boosted.`);
+          
+          // Record purchase history for training cost
+          recordPurchase({
+              day: prev.day,
+              item: `${dog.name} Training`,
+              quantity: 1,
+              cost: DOG_TRAINING_COST,
+              type: 'infrastructure', // Treating training as an infrastructure investment
+          });
+          
+          return {
+              ...prev,
+              cash: prev.cash - DOG_TRAINING_COST,
+              ownedPets: newOwnedPets,
+          };
+      });
+  }, [recordPurchase]);
+
 
   // --- Purchase Handlers ---
 
@@ -365,6 +456,15 @@ export function useFarmGame() {
             }
         }
     }
+    
+    // Check pet ownership limit (only one of each type)
+    if (details.type === 'pet') {
+        const pet = details.item as Pet;
+        if (gameState.ownedPets.some(p => p.id === pet.id)) {
+            showError(`You already own a ${pet.name}.`);
+            return false;
+        }
+    }
 
 
     setGameState(prev => {
@@ -372,6 +472,9 @@ export function useFarmGame() {
         let newInventory = { ...prev.inventory };
         let newFertilizerInventory = { ...prev.fertilizerInventory };
         let newOwnedAnimals = [...prev.ownedAnimals];
+        let newOwnedPets = [...prev.ownedPets];
+        let purchaseType: PurchaseRecord['type'] = details.type;
+        let itemName = details.item.name;
 
         if (details.type === 'seed') {
             const crop = details.item as Crop;
@@ -402,7 +505,24 @@ export function useFarmGame() {
             const fertilizer = details.item as Fertilizer;
             newFertilizerInventory[fertilizer.id] = (newFertilizerInventory[fertilizer.id] || 0) + details.quantity;
             showSuccess(`Purchased ${details.quantity} unit(s) of ${fertilizer.name} for $${details.totalCost}. Tax paid: $${details.taxAmount}.`);
+        } else if (details.type === 'pet') {
+            const petTemplate = details.item as Pet;
+            
+            // Initialize pet with default state (not fed)
+            const newPet = { ...petTemplate, isFed: false };
+            newOwnedPets = [...prev.ownedPets, newPet];
+            
+            showSuccess(`Purchased ${petTemplate.name} for $${details.totalCost}. Welcome to the farm!`);
         }
+
+        // Record purchase history
+        recordPurchase({
+            day: prev.day,
+            item: itemName,
+            quantity: details.quantity,
+            cost: details.totalCost,
+            type: purchaseType,
+        });
 
         return {
             ...prev,
@@ -410,13 +530,423 @@ export function useFarmGame() {
             inventory: newInventory,
             fertilizerInventory: newFertilizerInventory,
             ownedAnimals: newOwnedAnimals,
+            ownedPets: newOwnedPets,
         };
     });
     return true;
-  }, [gameState.cash, gameState.inventory, gameState.ownedLand]);
+  }, [gameState.cash, gameState.inventory, gameState.ownedLand, gameState.ownedPets, recordPurchase]);
 
 
-  // --- Fertilizer Handler (Omitted for brevity, assuming existing logic is fine) ---
+  // --- Infrastructure/Land Handlers (Updated to record history) ---
+
+  const handleBuyLand = useCallback((plot: LandPlot) => {
+    if (gameState.cash >= plot.basePrice) {
+      setGameState(prev => {
+        const newPlot = { ...plot, isOwned: true };
+        
+        const newOwnedLand = [...prev.ownedLand, newPlot];
+        
+        setAvailableLand(prevAvailable => prevAvailable.map(p => p.id === plot.id ? newPlot : p));
+        
+        // Record purchase
+        recordPurchase({
+            day: prev.day,
+            item: plot.name,
+            quantity: 1,
+            cost: plot.basePrice,
+            type: 'land',
+        });
+        
+        return {
+          ...prev,
+          cash: prev.cash - plot.basePrice,
+          ownedLand: newOwnedLand,
+        };
+      });
+      showSuccess(`Successfully purchased ${plot.name} for $${plot.basePrice.toLocaleString()}.`);
+    } else {
+      showError("Insufficient funds to purchase this land plot.");
+    }
+  }, [gameState.cash, recordPurchase]);
+
+  const handleBuyGreenhouse = useCallback(() => {
+    if (gameState.cash >= GREENHOUSE_COST) {
+        setGameState(prev => {
+            // Record purchase
+            recordPurchase({
+                day: prev.day,
+                item: 'Greenhouse',
+                quantity: 1,
+                cost: GREENHOUSE_COST,
+                type: 'infrastructure',
+            });
+            
+            return {
+                ...prev,
+                cash: prev.cash - GREENHOUSE_COST,
+                greenhousePlot: { ...INITIAL_GREENHOUSE_PLOT, isOwned: true },
+            };
+        });
+        showSuccess("Greenhouse purchased! You can now grow crops year-round in the dedicated plot.");
+    } else {
+        showError("Insufficient funds to purchase the Greenhouse.");
+    }
+  }, [gameState.cash, recordPurchase]);
+  
+  const handleBuyButcherStand = useCallback(() => {
+    if (gameState.cash >= BUTCHER_STAND_COST) {
+        setGameState(prev => {
+            // Record purchase
+            recordPurchase({
+                day: prev.day,
+                item: 'Personal Butcher Stand',
+                quantity: 1,
+                cost: BUTCHER_STAND_COST,
+                type: 'infrastructure',
+            });
+            
+            return {
+                ...prev,
+                cash: prev.cash - BUTCHER_STAND_COST,
+                hasButcherStand: true,
+            };
+        });
+        showSuccess("Personal Butcher Stand purchased! You can now process meat products for restaurant sales.");
+    } else {
+        showError("Insufficient funds to purchase the Personal Butcher Stand.");
+    }
+  }, [gameState.cash, recordPurchase]);
+  
+  const handleBuySmallSilo = useCallback(() => {
+    if (gameState.cash >= SMALL_SILO_COST) {
+        setGameState(prev => {
+            // Record purchase
+            recordPurchase({
+                day: prev.day,
+                item: 'Small Silo',
+                quantity: 1,
+                cost: SMALL_SILO_COST,
+                type: 'infrastructure',
+            });
+            
+            return {
+                ...prev,
+                cash: prev.cash - SMALL_SILO_COST,
+                hasSmallSilo: true,
+            };
+        });
+        showSuccess(`Small Silo purchased! Inventory capacity increased by ${SMALL_SILO_CAPACITY_INCREASE.toLocaleString()} units.`);
+    } else {
+        showError("Insufficient funds to purchase the Small Silo.");
+    }
+  }, [gameState.cash, recordPurchase]);
+  
+  const handleBuyLargeSilo = useCallback(() => {
+    if (gameState.cash >= LARGE_SILO_COST) {
+        setGameState(prev => {
+            // Record purchase
+            recordPurchase({
+                day: prev.day,
+                item: 'Large Silo',
+                quantity: 1,
+                cost: LARGE_SILO_COST,
+                type: 'infrastructure',
+            });
+            
+            return {
+                ...prev,
+                cash: prev.cash - LARGE_SILO_COST,
+                hasLargeSilo: true,
+            };
+        });
+        showSuccess(`Large Silo purchased! Inventory capacity increased by ${LARGE_SILO_CAPACITY_INCREASE.toLocaleString()} units.`);
+    } else {
+        showError("Insufficient funds to purchase the Large Silo.");
+    }
+  }, [gameState.cash, recordPurchase]);
+  
+  const handleBuyWaterPump = useCallback(() => {
+    if (gameState.cash >= WATER_PUMP_COST) {
+        setGameState(prev => {
+            // Record purchase
+            recordPurchase({
+                day: prev.day,
+                item: 'Automated Water Pump',
+                quantity: 1,
+                cost: WATER_PUMP_COST,
+                type: 'infrastructure',
+            });
+            
+            return {
+                ...prev,
+                cash: prev.cash - WATER_PUMP_COST,
+                hasWaterPump: true,
+            };
+        });
+        showSuccess("Water Pump installed! All crops now receive a daily 10% growth boost.");
+    } else {
+        showError("Insufficient funds to purchase the Water Pump.");
+    }
+  }, [gameState.cash, recordPurchase]);
+
+
+  // --- Sell/Butcher Handlers ---
+  
+  // Helper function to calculate livestock product value including herding boost
+  const calculateLivestockSellValue = (basePrice: number, quantity: number, ownedPets: Pet[]): number => {
+      let totalBoost = 0;
+      
+      // Calculate total herding boost from trained dogs and horses
+      ownedPets.forEach(pet => {
+          if (pet.isFed && (pet.isDog ? pet.isTrained : true)) {
+              totalBoost += pet.herdingBoost;
+          }
+      });
+      
+      const finalPrice = basePrice * (1 + totalBoost);
+      return Math.floor(finalPrice * quantity);
+  };
+
+
+  // Handles selling non-meat animals directly (deprecated but kept for structure)
+  const handleSellAnimal = useCallback((animalId: string, quantity: number) => {
+    const animalType = ANIMALS.find(a => a.id === animalId);
+    if (!animalType || animalType.isMeatAnimal) {
+        showError("Meat animals must be butchered first.");
+        return;
+    }
+    
+    const sellPricePerUnit = Math.floor(animalType.purchaseCost * 0.75);
+    const totalSellValue = quantity * sellPricePerUnit;
+
+    setGameState(prev => {
+      const existingAnimalIndex = prev.ownedAnimals.findIndex(a => a.id === animalId);
+      
+      if (existingAnimalIndex === -1 || prev.ownedAnimals[existingAnimalIndex].quantity < quantity) {
+        showError("Error selling animals: Quantity mismatch.");
+        return prev;
+      }
+
+      const newOwnedAnimals = prev.ownedAnimals.filter(a => a.id !== animalId);
+      
+      return {
+        ...prev,
+        cash: prev.cash + totalSellValue,
+        ownedAnimals: newOwnedAnimals,
+      };
+    });
+    showSuccess(`Sold ${quantity} ${animalType.name}(s) for $${totalSellValue.toLocaleString()}.`);
+  }, []);
+
+
+  // Handles selling crops and non-meat products (eggs, milk, wool, honey) AND meat products processed by the external Butcher Shop (i.e., those in regular inventory)
+  const handleSellItem = useCallback((itemId: string, quantity: number) => {
+    const crop = getCropById(itemId);
+    const product = getAnimalProductById(itemId);
+    
+    let basePrice = 0;
+    let itemName = "";
+    let isLivestockProduct = false;
+
+    if (crop) {
+      basePrice = crop.basePrice;
+      itemName = crop.name;
+    } else if (product) {
+      basePrice = product.basePrice;
+      itemName = product.name;
+      isLivestockProduct = true;
+    } else {
+      showError("Item not found in market.");
+      return;
+    }
+
+    let value = quantity * basePrice;
+    
+    // Apply Herding Boost if it's a livestock product (non-meat)
+    if (isLivestockProduct && !MEAT_PRODUCT_IDS.includes(itemId)) {
+        value = calculateLivestockSellValue(basePrice, quantity, gameState.ownedPets);
+        showSuccess(`Sold ${quantity.toLocaleString()} units of ${itemName} (Livestock Quality Boosted) for $${value.toLocaleString()}.`);
+    }
+    
+    // Check if this is a meat product sold via the default market (which implies the 50% tax)
+    const isMeatProduct = MEAT_PRODUCT_IDS.includes(itemId);
+    
+    if (isMeatProduct) {
+        // Butcher Shop tax: takes away half the price (50% reduction)
+        value = Math.floor(value * 0.5);
+        showSuccess(`Butcher Shop tax applied. Sold ${quantity.toLocaleString()} units of ${itemName} for $${value.toLocaleString()}.`);
+    } else if (!isLivestockProduct) {
+        // Selling crops
+        showSuccess(`Sold ${quantity.toLocaleString()} units of ${itemName} for $${value.toLocaleString()}.`);
+    }
+    
+    setGameState(prev => {
+      const newInventory = { ...prev.inventory };
+      // Since FarmShop currently sells ALL, we delete the entry.
+      delete newInventory[itemId];
+      
+      return {
+        ...prev,
+        cash: prev.cash + value,
+        inventory: newInventory,
+      };
+    });
+  }, [gameState.ownedPets]);
+  
+  
+  // New handler for selling meat from the freezer to restaurants
+  const handleSellMeatToRestaurant = useCallback((restaurantId: string, productId: string, quantity: number) => {
+      const restaurant = getRestaurantById(restaurantId);
+      const product = getAnimalProductById(productId);
+      
+      if (!restaurant || !product || !MEAT_PRODUCT_IDS.includes(productId)) {
+          showError("Invalid sale attempt.");
+          return;
+      }
+      
+      setGameState(prev => {
+          const availableQuantity = prev.freezerInventory[productId] || 0;
+          if (availableQuantity < quantity) {
+              showError(`Insufficient ${product.name} in the freezer.`);
+              return prev;
+          }
+          
+          const basePrice = product.basePrice;
+          const multiplier = restaurant.demand[productId] || 1.0; // Default multiplier is 1.0
+          
+          // Apply Herding Boost to meat sales (if pets are fed/trained)
+          let totalBoost = 0;
+          prev.ownedPets.forEach(pet => {
+              if (pet.isFed && (pet.isDog ? pet.isTrained : true)) {
+                  totalBoost += pet.herdingBoost;
+              }
+          });
+          
+          const finalMultiplier = multiplier * (1 + totalBoost);
+          
+          const unitValue = Math.floor(basePrice * finalMultiplier);
+          const totalValue = quantity * unitValue;
+          
+          const newFreezerInventory = { ...prev.freezerInventory };
+          newFreezerInventory[productId] -= quantity;
+          if (newFreezerInventory[productId] <= 0) {
+              delete newFreezerInventory[productId];
+          }
+          
+          showSuccess(`Sold ${quantity} units of ${product.name} to ${restaurant.name} for $${totalValue.toLocaleString()} (${(finalMultiplier * 100).toFixed(0)}% price).`);
+          
+          return {
+              ...prev,
+              cash: prev.cash + totalValue,
+              freezerInventory: newFreezerInventory,
+          };
+      });
+  }, [gameState.ownedPets]);
+
+
+  const handleTileAction = useCallback((plotId: string, tileId: string, action: 'plant' | 'harvest', selectedCropId: string | null) => {
+    setGameState(prev => {
+      
+      let targetPlot: LandPlot | null = null;
+      let plotIndex = -1;
+      
+      if (plotId === 'greenhouse' && prev.greenhousePlot) {
+          targetPlot = prev.greenhousePlot;
+      } else {
+          plotIndex = prev.ownedLand.findIndex(p => p.id === plotId);
+          if (plotIndex !== -1) {
+              targetPlot = prev.ownedLand[plotIndex];
+          }
+      }
+
+      if (!targetPlot) return prev;
+
+      const isGreenhouse = targetPlot.id === 'greenhouse';
+      const isWinter = prev.currentSeason === 'Winter';
+      
+      const tileIndex = targetPlot.tiles.findIndex(t => t.id === tileId);
+      if (tileIndex === -1) return prev;
+      
+      const tile = { ...targetPlot.tiles[tileIndex] };
+      
+      let newInventory = { ...prev.inventory };
+      let newOwnedLand = [...prev.ownedLand];
+      let newGreenhousePlot = prev.greenhousePlot;
+      
+      const maxCapacity = calculateInventoryCapacity(prev);
+      const currentTotalInventory = Object.values(prev.inventory).reduce((sum, q) => sum + q, 0);
+
+
+      if (action === 'plant' && selectedCropId) {
+        const crop = getCropById(selectedCropId);
+        if (!crop) return prev;
+        
+        if (isWinter && !isGreenhouse) {
+            showError("Cannot plant during Winter outside of the Greenhouse!");
+            return prev;
+        }
+
+        const seedCount = prev.inventory[selectedCropId] || 0;
+        
+        if (seedCount > 0) {
+          tile.cropId = selectedCropId;
+          tile.growthStage = 0;
+          tile.isReadyToHarvest = false;
+          tile.fertilizerId = null; // Reset fertilizer status on planting
+          
+          newInventory[selectedCropId] = seedCount - 1;
+          if (newInventory[selectedCropId] === 0) delete newInventory[selectedCropId];
+          
+          showSuccess(`Planted ${crop.name} seed in ${targetPlot.name}.`);
+          
+        } else {
+          showError(`You need to buy ${crop.name} seeds first!`);
+          return prev;
+        }
+      } 
+      
+      if (action === 'harvest' && tile.isReadyToHarvest && tile.cropId) {
+        const crop = getCropById(tile.cropId);
+        if (!crop) return prev;
+        
+        const yieldAmount = crop.baseYield; 
+        
+        if (currentTotalInventory + yieldAmount > maxCapacity) {
+            showError(`Inventory full! Max: ${maxCapacity.toLocaleString()}. Cannot harvest ${crop.name}. Sell items first.`);
+            return prev;
+        }
+        
+        tile.cropId = null;
+        tile.growthStage = 0;
+        tile.isReadyToHarvest = false;
+        tile.fertilizerId = null; // Clear fertilizer status on harvest
+        
+        newInventory = { 
+          ...prev.inventory, 
+          [crop.id]: (prev.inventory[crop.id] || 0) + yieldAmount 
+        };
+        
+        showSuccess(`Harvested ${yieldAmount} units of ${crop.name} from ${targetPlot.name}!`);
+      }
+      
+      const updatedPlot = { ...targetPlot, tiles: targetPlot.tiles.map((t, i) => i === tileIndex ? tile : t) };
+
+      if (isGreenhouse) {
+          newGreenhousePlot = updatedPlot;
+      } else {
+          newOwnedLand[plotIndex] = updatedPlot;
+      }
+
+      return { 
+          ...prev, 
+          ownedLand: newOwnedLand, 
+          greenhousePlot: newGreenhousePlot,
+          inventory: newInventory 
+      };
+    });
+  }, [gameState.currentSeason]);
+  
+  // Fertilizer handler omitted for brevity
 
   const handleApplyFertilizer = useCallback((plotId: string, tileId: string, fertilizerId: string) => {
     const fertilizer = getFertilizerById(fertilizerId);
@@ -492,35 +1022,27 @@ export function useFarmGame() {
             
             // Special handling for 6-tile coverage (3x2 or 2x3) if the plot is not square
             if (fertilizer.coverage === 6) {
-                // Revert to previous 3x2/2x3 logic if needed, but for simplicity, we'll stick to the square approximation above
-                // For now, we rely on the previous implementation's logic for 6 tiles, which is complex. 
-                // Since the new fertilizers use 9, 16, 25 (squares), we ensure the logic handles the general case.
-                // We will keep the previous complex logic for 6 tiles for consistency if it was working.
-                // Since the previous logic for 6 tiles was complex and specific, let's ensure the new square logic doesn't break 6.
-                // For 6 tiles, we'll use the previous implementation's logic exactly:
-                if (fertilizer.coverage === 6) {
-                    affectedIndices.length = 0; // Clear square approximation
-                    const isWideEnough = plotSize >= 3;
+                affectedIndices.length = 0; // Clear square approximation
+                const isWideEnough = plotSize >= 3;
+                
+                if (isWideEnough) {
+                    // Prioritize 3x2 horizontal spread
+                    const startRow = Math.max(0, Math.min(plotSize - 2, centerRow));
+                    const startCol = Math.max(0, Math.min(plotSize - 3, centerCol));
                     
-                    if (isWideEnough) {
-                        // Prioritize 3x2 horizontal spread
-                        const startRow = Math.max(0, Math.min(plotSize - 2, centerRow));
-                        const startCol = Math.max(0, Math.min(plotSize - 3, centerCol));
-                        
-                        for (let r = startRow; r < startRow + 2; r++) {
-                            for (let c = startCol; c < startCol + 3; c++) {
-                                affectedIndices.push(r * plotSize + c);
-                            }
+                    for (let r = startRow; r < startRow + 2; r++) {
+                        for (let c = startCol; c < startCol + 3; c++) {
+                            affectedIndices.push(r * plotSize + c);
                         }
-                    } else {
-                        // Fallback for narrow plots (e.g., 3x2 greenhouse) - use 2x3 vertical spread if possible
-                        const startRow = Math.max(0, Math.min(plotSize - 3, centerRow));
-                        const startCol = Math.max(0, Math.min(plotSize - 2, centerCol));
-                        
-                        for (let r = startRow; r < startRow + 3; r++) {
-                            for (let c = startCol; c < startCol + 2; c++) {
-                                affectedIndices.push(r * plotSize + c);
-                            }
+                    }
+                } else {
+                    // Fallback for narrow plots (e.g., 3x2 greenhouse) - use 2x3 vertical spread if possible
+                    const startRow = Math.max(0, Math.min(plotSize - 3, centerRow));
+                    const startCol = Math.max(0, Math.min(plotSize - 2, centerCol));
+                    
+                    for (let r = startRow; r < startRow + 3; r++) {
+                        for (let c = startCol; c < startCol + 2; c++) {
+                            affectedIndices.push(r * plotSize + c);
                         }
                     }
                 }
@@ -587,7 +1109,7 @@ export function useFarmGame() {
   }, [gameState.ownedLand]);
 
 
-  // --- Mass Action Handlers ---
+  // --- Mass Action Handlers (omitted for brevity) ---
   
   const handlePlantAll = useCallback((selectedCropId: string) => {
     const crop = getCropById(selectedCropId);
@@ -703,8 +1225,42 @@ export function useFarmGame() {
   }, []);
 
 
-  // --- Sell/Butcher Handlers (omitted for brevity, no changes needed here) ---
+  // --- Animal Handlers (omitted for brevity) ---
   
+  const handleFeedAnimal = useCallback((animalId: string) => {
+    setGameState(prev => {
+        const animalIndex = prev.ownedAnimals.findIndex(a => a.id === animalId);
+        if (animalIndex === -1) return prev;
+        
+        const animal = prev.ownedAnimals[animalIndex];
+        if (!animal.isMeatAnimal) return prev;
+        
+        const totalFeedCost = animal.feedCost * animal.quantity;
+        
+        if (prev.cash < totalFeedCost) {
+            showError(`Cannot afford to feed ${animal.name}s. Cost: $${totalFeedCost}.`);
+            return prev;
+        }
+        
+        if (animal.isFed) {
+            showError(`${animal.name}s have already been fed today.`);
+            return prev;
+        }
+        
+        const newOwnedAnimals = prev.ownedAnimals.map((a, index) => 
+            index === animalIndex ? { ...a, isFed: true } : a
+        );
+        
+        showSuccess(`Fed ${animal.quantity} ${animal.name}(s) for $${totalFeedCost}.`);
+        
+        return {
+            ...prev,
+            cash: prev.cash - totalFeedCost,
+            ownedAnimals: newOwnedAnimals,
+        };
+    });
+  }, []);
+
   const handleButcherAnimal = useCallback((animalId: string) => {
     setGameState(prev => {
         const animalIndex = prev.ownedAnimals.findIndex(a => a.id === animalId);
@@ -751,313 +1307,6 @@ export function useFarmGame() {
         };
     });
   }, []);
-  
-  // Handles selling non-meat animals directly (deprecated but kept for structure)
-  const handleSellAnimal = useCallback((animalId: string, quantity: number) => {
-    const animalType = ANIMALS.find(a => a.id === animalId);
-    if (!animalType || animalType.isMeatAnimal) {
-        showError("Meat animals must be butchered first.");
-        return;
-    }
-    
-    const sellPricePerUnit = Math.floor(animalType.purchaseCost * 0.75);
-    const totalSellValue = quantity * sellPricePerUnit;
-
-    setGameState(prev => {
-      const existingAnimalIndex = prev.ownedAnimals.findIndex(a => a.id === animalId);
-      
-      if (existingAnimalIndex === -1 || prev.ownedAnimals[existingAnimalIndex].quantity < quantity) {
-        showError("Error selling animals: Quantity mismatch.");
-        return prev;
-      }
-
-      const newOwnedAnimals = prev.ownedAnimals.filter(a => a.id !== animalId);
-      
-      return {
-        ...prev,
-        cash: prev.cash + totalSellValue,
-        ownedAnimals: newOwnedAnimals,
-      };
-    });
-    showSuccess(`Sold ${quantity} ${animalType.name}(s) for $${totalSellValue.toLocaleString()}.`);
-  }, []);
-
-
-  // Handles selling crops and non-meat products (eggs, milk, wool, honey) AND meat products processed by the external Butcher Shop (i.e., those in regular inventory)
-  const handleSellItem = useCallback((itemId: string, quantity: number) => {
-    const crop = getCropById(itemId);
-    const product = getAnimalProductById(itemId);
-    
-    let basePrice = 0;
-    let itemName = "";
-
-    if (crop) {
-      basePrice = crop.basePrice;
-      itemName = crop.name;
-    } else if (product) {
-      basePrice = product.basePrice;
-      itemName = product.name;
-    } else {
-      showError("Item not found in market.");
-      return;
-    }
-
-    let value = quantity * basePrice;
-    
-    // Check if this is a meat product sold via the default market (which implies the 50% tax)
-    const isMeatProduct = MEAT_PRODUCT_IDS.includes(itemId);
-    
-    if (isMeatProduct) {
-        // Butcher Shop tax: takes away half the price (50% reduction)
-        value = Math.floor(value * 0.5);
-        showSuccess(`Butcher Shop tax applied. Sold ${quantity.toLocaleString()} units of ${itemName} for $${value.toLocaleString()}.`);
-    } else {
-        // Selling non-meat items (crops, eggs, milk, wool, honey)
-        showSuccess(`Sold ${quantity.toLocaleString()} units of ${itemName} for $${value.toLocaleString()}.`);
-    }
-    
-    setGameState(prev => {
-      const newInventory = { ...prev.inventory };
-      // Ensure we only remove the quantity sold, although currently FarmShop sells all.
-      // Since FarmShop currently sells ALL, we delete the entry.
-      delete newInventory[itemId];
-      
-      return {
-        ...prev,
-        cash: prev.cash + value,
-        inventory: newInventory,
-      };
-    });
-  }, []);
-  
-  
-  // New handler for selling meat from the freezer to restaurants
-  const handleSellMeatToRestaurant = useCallback((restaurantId: string, productId: string, quantity: number) => {
-      const restaurant = getRestaurantById(restaurantId);
-      const product = getAnimalProductById(productId);
-      
-      if (!restaurant || !product || !MEAT_PRODUCT_IDS.includes(productId)) {
-          showError("Invalid sale attempt.");
-          return;
-      }
-      
-      setGameState(prev => {
-          const availableQuantity = prev.freezerInventory[productId] || 0;
-          if (availableQuantity < quantity) {
-              showError(`Insufficient ${product.name} in the freezer.`);
-              return prev;
-          }
-          
-          const basePrice = product.basePrice;
-          const multiplier = restaurant.demand[productId] || 1.0; // Default multiplier is 1.0
-          
-          const unitValue = Math.floor(basePrice * multiplier);
-          const totalValue = quantity * unitValue;
-          
-          const newFreezerInventory = { ...prev.freezerInventory };
-          newFreezerInventory[productId] -= quantity;
-          if (newFreezerInventory[productId] <= 0) {
-              delete newFreezerInventory[productId];
-          }
-          
-          showSuccess(`Sold ${quantity} units of ${product.name} to ${restaurant.name} for $${totalValue.toLocaleString()} (${(multiplier * 100).toFixed(0)}% price).`);
-          
-          return {
-              ...prev,
-              cash: prev.cash + totalValue,
-              freezerInventory: newFreezerInventory,
-          };
-      });
-  }, []);
-
-
-  const handleTileAction = useCallback((plotId: string, tileId: string, action: 'plant' | 'harvest', selectedCropId: string | null) => {
-    setGameState(prev => {
-      
-      let targetPlot: LandPlot | null = null;
-      let plotIndex = -1;
-      
-      if (plotId === 'greenhouse' && prev.greenhousePlot) {
-          targetPlot = prev.greenhousePlot;
-      } else {
-          plotIndex = prev.ownedLand.findIndex(p => p.id === plotId);
-          if (plotIndex !== -1) {
-              targetPlot = prev.ownedLand[plotIndex];
-          }
-      }
-
-      if (!targetPlot) return prev;
-
-      const isGreenhouse = targetPlot.id === 'greenhouse';
-      const isWinter = prev.currentSeason === 'Winter';
-      
-      const tileIndex = targetPlot.tiles.findIndex(t => t.id === tileId);
-      if (tileIndex === -1) return prev;
-      
-      const tile = { ...targetPlot.tiles[tileIndex] };
-      
-      let newInventory = { ...prev.inventory };
-      let newOwnedLand = [...prev.ownedLand];
-      let newGreenhousePlot = prev.greenhousePlot;
-      
-      const maxCapacity = calculateInventoryCapacity(prev);
-      const currentTotalInventory = Object.values(prev.inventory).reduce((sum, q) => sum + q, 0);
-
-
-      if (action === 'plant' && selectedCropId) {
-        const crop = getCropById(selectedCropId);
-        if (!crop) return prev;
-        
-        if (isWinter && !isGreenhouse) {
-            showError("Cannot plant during Winter outside of the Greenhouse!");
-            return prev;
-        }
-
-        const seedCount = prev.inventory[selectedCropId] || 0;
-        
-        if (seedCount > 0) {
-          tile.cropId = selectedCropId;
-          tile.growthStage = 0;
-          tile.isReadyToHarvest = false;
-          tile.fertilizerId = null; // Reset fertilizer status on planting
-          
-          newInventory[selectedCropId] = seedCount - 1;
-          if (newInventory[selectedCropId] === 0) delete newInventory[selectedCropId];
-          
-          showSuccess(`Planted ${crop.name} seed in ${targetPlot.name}.`);
-          
-        } else {
-          showError(`You need to buy ${crop.name} seeds first!`);
-          return prev;
-        }
-      } 
-      
-      if (action === 'harvest' && tile.isReadyToHarvest && tile.cropId) {
-        const crop = getCropById(tile.cropId);
-        if (!crop) return prev;
-        
-        const yieldAmount = crop.baseYield; 
-        
-        if (currentTotalInventory + yieldAmount > maxCapacity) {
-            showError(`Inventory full! Max: ${maxCapacity.toLocaleString()}. Cannot harvest ${crop.name}. Sell items first.`);
-            return prev;
-        }
-        
-        tile.cropId = null;
-        tile.growthStage = 0;
-        tile.isReadyToHarvest = false;
-        tile.fertilizerId = null; // Clear fertilizer status on harvest
-        
-        newInventory = { 
-          ...prev.inventory, 
-          [crop.id]: (prev.inventory[crop.id] || 0) + yieldAmount 
-        };
-        
-        showSuccess(`Harvested ${yieldAmount} units of ${crop.name} from ${targetPlot.name}!`);
-      }
-      
-      const updatedPlot = { ...targetPlot, tiles: targetPlot.tiles.map((t, i) => i === tileIndex ? tile : t) };
-
-      if (isGreenhouse) {
-          newGreenhousePlot = updatedPlot;
-      } else {
-          newOwnedLand[plotIndex] = updatedPlot;
-      }
-
-      return { 
-          ...prev, 
-          ownedLand: newOwnedLand, 
-          greenhousePlot: newGreenhousePlot,
-          inventory: newInventory 
-      };
-    });
-  }, [gameState.currentSeason]);
-  
-  const handleBuyLand = useCallback((plot: LandPlot) => {
-    if (gameState.cash >= plot.basePrice) {
-      setGameState(prev => {
-        const newPlot = { ...plot, isOwned: true };
-        
-        const newOwnedLand = [...prev.ownedLand, newPlot];
-        
-        setAvailableLand(prevAvailable => prevAvailable.map(p => p.id === plot.id ? newPlot : p));
-        
-        return {
-          ...prev,
-          cash: prev.cash - plot.basePrice,
-          ownedLand: newOwnedLand,
-        };
-      });
-      showSuccess(`Successfully purchased ${plot.name} for $${plot.basePrice.toLocaleString()}.`);
-    } else {
-      showError("Insufficient funds to purchase this land plot.");
-    }
-  }, [gameState.cash]);
-
-  const handleBuyGreenhouse = useCallback(() => {
-    if (gameState.cash >= GREENHOUSE_COST) {
-        setGameState(prev => ({
-            ...prev,
-            cash: prev.cash - GREENHOUSE_COST,
-            greenhousePlot: { ...INITIAL_GREENHOUSE_PLOT, isOwned: true },
-        }));
-        showSuccess("Greenhouse purchased! You can now grow crops year-round in the dedicated plot.");
-    } else {
-        showError("Insufficient funds to purchase the Greenhouse.");
-    }
-  }, [gameState.cash]);
-  
-  const handleBuyButcherStand = useCallback(() => {
-    if (gameState.cash >= BUTCHER_STAND_COST) {
-        setGameState(prev => ({
-            ...prev,
-            cash: prev.cash - BUTCHER_STAND_COST,
-            hasButcherStand: true,
-        }));
-        showSuccess("Personal Butcher Stand purchased! You can now process meat products for restaurant sales.");
-    } else {
-        showError("Insufficient funds to purchase the Personal Butcher Stand.");
-    }
-  }, [gameState.cash]);
-  
-  const handleBuySmallSilo = useCallback(() => {
-    if (gameState.cash >= SMALL_SILO_COST) {
-        setGameState(prev => ({
-            ...prev,
-            cash: prev.cash - SMALL_SILO_COST,
-            hasSmallSilo: true,
-        }));
-        showSuccess(`Small Silo purchased! Inventory capacity increased by ${SMALL_SILO_CAPACITY_INCREASE.toLocaleString()} units.`);
-    } else {
-        showError("Insufficient funds to purchase the Small Silo.");
-    }
-  }, [gameState.cash]);
-  
-  const handleBuyLargeSilo = useCallback(() => {
-    if (gameState.cash >= LARGE_SILO_COST) {
-        setGameState(prev => ({
-            ...prev,
-            cash: prev.cash - LARGE_SILO_COST,
-            hasLargeSilo: true,
-        }));
-        showSuccess(`Large Silo purchased! Inventory capacity increased by ${LARGE_SILO_CAPACITY_INCREASE.toLocaleString()} units.`);
-    } else {
-        showError("Insufficient funds to purchase the Large Silo.");
-    }
-  }, [gameState.cash]);
-  
-  const handleBuyWaterPump = useCallback(() => {
-    if (gameState.cash >= WATER_PUMP_COST) {
-        setGameState(prev => ({
-            ...prev,
-            cash: prev.cash - WATER_PUMP_COST,
-            hasWaterPump: true,
-        }));
-        showSuccess("Water Pump installed! All crops now receive a daily 10% growth boost.");
-    } else {
-        showError("Insufficient funds to purchase the Water Pump.");
-    }
-  }, [gameState.cash]);
 
 
   return {
@@ -1070,15 +1319,18 @@ export function useFarmGame() {
     handleSellItem,
     handleSellMeatToRestaurant,
     handleTileAction,
-    handlePlantAll, // Export new handler
-    handleHarvestAll, // Export new handler
+    handlePlantAll,
+    handleHarvestAll,
     handleBuyLand,
     handleBuyGreenhouse,
     handleBuyButcherStand,
-    handleBuySmallSilo, // Export new handler
-    handleBuyLargeSilo, // Export new handler
+    handleBuySmallSilo,
+    handleBuyLargeSilo,
     handleBuyWaterPump,
     handleApplyFertilizer,
+    handleFeedPet, // Export new handler
+    handlePlayWithPet, // Export new handler
+    handleTrainDog, // Export new handler
     adjustCash,
     adjustDay,
     adjustSeason,

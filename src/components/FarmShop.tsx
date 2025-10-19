@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, FERTILIZERS, Fertilizer, LandPlot, GREENHOUSE_COST, BUTCHER_STAND_COST, MEAT_PRODUCT_IDS, WATER_PUMP_COST, SMALL_SILO_COST, LARGE_SILO_COST, SMALL_SILO_CAPACITY_INCREASE, LARGE_SILO_CAPACITY_INCREASE, INITIAL_LAND_PLOTS } from '@/lib/game-data';
-import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf, Info, Droplet, LandPlot as LandPlotIcon, CheckCircle, Factory, Store, Zap, Warehouse, Waves, Gem, Diamond, Shield } from 'lucide-react';
+import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, FERTILIZERS, Fertilizer, LandPlot, GREENHOUSE_COST, BUTCHER_STAND_COST, MEAT_PRODUCT_IDS, WATER_PUMP_COST, SMALL_SILO_COST, LARGE_SILO_COST, SMALL_SILO_CAPACITY_INCREASE, LARGE_SILO_CAPACITY_INCREASE, INITIAL_LAND_PLOTS, PETS, Pet } from '@/lib/game-data';
+import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf, Info, Droplet, LandPlot as LandPlotIcon, CheckCircle, Factory, Store, Zap, Warehouse, Waves, Gem, Diamond, Shield, Dog, Horse, Heart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import ItemDetailsDialog from './ItemDetailsDialog';
@@ -16,6 +16,7 @@ interface FarmShopProps {
   freezerInventory: Record<string, number>; // New prop
   fertilizerInventory: Record<string, number>;
   ownedAnimals: Animal[];
+  ownedPets: Pet[]; // New prop
   availableLand: LandPlot[]; 
   isGreenhouseOwned: boolean; 
   hasButcherStand: boolean;
@@ -26,29 +27,30 @@ interface FarmShopProps {
   selectedFertilizerId: string | null;
   onSelectCrop: (cropId: string | null) => void;
   onSelectFertilizer: (fertId: string | null) => void;
-  onOpenPurchaseModal: (item: Crop | Animal | Fertilizer) => void; 
-  onSellItem: (itemId: string, quantity: number) => void; // Removed useButcherStand flag, as this handler now only sells non-freezer items
+  onOpenPurchaseModal: (item: Crop | Animal | Fertilizer | Pet) => void; // Updated type
+  onSellItem: (itemId: string, quantity: number) => void;
   onSellAnimal: (animalId: string, quantity: number) => void; 
   onBuyLand: (plot: LandPlot) => void; 
   onBuyGreenhouse: () => void; 
   onBuyButcherStand: () => void;
-  onBuySmallSilo: () => void; // Updated handler
-  onBuyLargeSilo: () => void; // Updated handler
-  onBuyWaterPump: () => void; // New handler
+  onBuySmallSilo: () => void;
+  onBuyLargeSilo: () => void;
+  onBuyWaterPump: () => void;
 }
 
 const FarmShop: React.FC<FarmShopProps> = ({ 
   cash, 
   inventory, 
-  freezerInventory, // Destructure new prop
+  freezerInventory,
   fertilizerInventory, 
   ownedAnimals, 
+  ownedPets, // Destructure new prop
   availableLand,
   isGreenhouseOwned,
   hasButcherStand,
-  hasSmallSilo, // Destructure updated prop
-  hasLargeSilo, // Destructure updated prop
-  hasWaterPump, // Destructure new prop
+  hasSmallSilo,
+  hasLargeSilo,
+  hasWaterPump,
   selectedCropId, 
   selectedFertilizerId, 
   onSelectCrop, 
@@ -59,12 +61,12 @@ const FarmShop: React.FC<FarmShopProps> = ({
   onBuyLand,
   onBuyGreenhouse,
   onBuyButcherStand,
-  onBuySmallSilo, // Use updated handler
-  onBuyLargeSilo, // Use updated handler
-  onBuyWaterPump, // Use new handler
+  onBuySmallSilo,
+  onBuyLargeSilo,
+  onBuyWaterPump,
 }) => {
   
-  const [detailsItem, setDetailsItem] = useState<Crop | Animal | Fertilizer | null>(null);
+  const [detailsItem, setDetailsItem] = useState<Crop | Animal | Fertilizer | Pet | null>(null); // Updated state type
 
   // Filter inventory into crops and animal products (excluding meat if the stand is owned, as that goes to the freezer)
   const inventoryItems = Object.entries(inventory).map(([itemId, quantity]) => {
@@ -77,13 +79,8 @@ const FarmShop: React.FC<FarmShopProps> = ({
     if (product) {
       const isMeat = MEAT_PRODUCT_IDS.includes(itemId);
       
-      // If the player owns the stand, meat should only be in the freezer, not here.
-      // If the player does NOT own the stand, meat is here and subject to 50% tax.
       if (isMeat && hasButcherStand) {
           // If the stand is owned, meat in the regular inventory shouldn't exist (or shouldn't be sold here).
-          // However, since the game logic ensures meat goes to the freezer if the stand is owned, 
-          // we only need to check if it's meat and calculate the tax if the stand is NOT owned.
-          // We keep the item if it's in the inventory, regardless of type, but the logic below handles the tax/value.
       }
       
       return { id: itemId, name: product.name, quantity, basePrice: product.basePrice, type: 'product', isMeat };
@@ -108,12 +105,10 @@ const FarmShop: React.FC<FarmShopProps> = ({
   const canAffordSmallSilo = cash >= SMALL_SILO_COST;
   const canAffordLargeSilo = cash >= LARGE_SILO_COST;
 
-  const handleOpenDetails = (item: Crop | Animal | Fertilizer) => {
+  const handleOpenDetails = (item: Crop | Animal | Fertilizer | Pet) => {
     setDetailsItem(item);
   };
   
-  // The onSellItem handler now only sells items from the regular inventory (crops, non-meat products, and meat processed without the stand).
-  // The useButcherStand flag is removed from the component interface and usage, as the logic is now handled by inventory separation.
   const handleSellRegularItem = (itemId: string, quantity: number) => {
       onSellItem(itemId, quantity);
   };
@@ -161,7 +156,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
               <TabsTrigger value="sell-harvest">Sell</TabsTrigger>
             </TabsList>
             
-            {/* Buy Seeds Tab */}
+            {/* Buy Seeds Tab (omitted for brevity) */}
             <TabsContent value="buy-seeds" className="mt-4 space-y-3">
               {CROPS.map((crop) => {
                 const canAfford = cash >= crop.seedCost;
@@ -215,50 +210,103 @@ const FarmShop: React.FC<FarmShopProps> = ({
             </TabsContent>
 
             {/* Buy Animals Tab */}
-            <TabsContent value="buy-animals" className="mt-4 space-y-3">
-              {ANIMALS.map((animal) => {
-                const canAfford = cash >= animal.purchaseCost;
+            <TabsContent value="buy-animals" className="mt-4 space-y-6">
+                <h3 className="text-xl font-semibold border-b pb-1 flex items-center">
+                    <PawPrint className="w-5 h-5 mr-2 text-amber-700" /> Livestock
+                </h3>
+                {ANIMALS.map((animal) => {
+                    const canAfford = cash >= animal.purchaseCost;
+                    
+                    return (
+                    <div 
+                        key={animal.id} 
+                        className={cn(
+                        "flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 border rounded-lg transition-colors space-y-2 sm:space-y-0 hover:bg-muted/50"
+                        )}
+                    >
+                        <div className="flex items-center space-x-3">
+                        <animal.icon className="w-6 h-6 text-amber-700" />
+                        <div>
+                            <h4 className="font-semibold">{animal.name}</h4>
+                            <p className="text-xs text-muted-foreground">
+                            Cost: ${animal.purchaseCost} | Produces {animal.product.name} every {animal.productionTime} days.
+                            </p>
+                        </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => handleOpenDetails(animal)}
+                            className="h-8 text-xs flex items-center space-x-1"
+                        >
+                            <Info className="w-3 h-3" />
+                            <span>Details</span>
+                        </Button>
+                        <Button
+                            onClick={() => onOpenPurchaseModal(animal)}
+                            disabled={!canAfford}
+                            className="h-8 flex items-center space-x-1 text-xs bg-green-600 hover:bg-green-700"
+                        >
+                            <DollarSign className="w-3 h-3" />
+                            <span>Buy Online</span>
+                        </Button>
+                        </div>
+                    </div>
+                    );
+                })}
                 
-                return (
-                  <div 
-                    key={animal.id} 
-                    className={cn(
-                      "flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 border rounded-lg transition-colors space-y-2 sm:space-y-0 hover:bg-muted/50"
-                    )}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <animal.icon className="w-6 h-6 text-amber-700" />
-                      <div>
-                        <h4 className="font-semibold">{animal.name}</h4>
-                        <p className="text-xs text-muted-foreground">
-                          Cost: ${animal.purchaseCost} | Produces {animal.product.name} every {animal.productionTime} days.
-                        </p>
-                      </div>
+                <h3 className="text-xl font-semibold border-b pb-1 flex items-center pt-4">
+                    <Dog className="w-5 h-5 mr-2 text-indigo-600" /> Pets
+                </h3>
+                {PETS.map((pet) => {
+                    const canAfford = cash >= pet.purchaseCost;
+                    const isOwned = ownedPets.some(p => p.id === pet.id);
+                    
+                    return (
+                    <div 
+                        key={pet.id} 
+                        className={cn(
+                        "flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 border rounded-lg transition-colors space-y-2 sm:space-y-0",
+                        isOwned ? "bg-green-50 dark:bg-green-900/20" : "hover:bg-muted/50"
+                        )}
+                    >
+                        <div className="flex items-center space-x-3">
+                        <pet.icon className="w-6 h-6 text-indigo-600" />
+                        <div>
+                            <h4 className="font-semibold">{pet.name}</h4>
+                            <p className="text-xs text-muted-foreground">
+                            Cost: ${pet.purchaseCost} | Happiness Boost: +{pet.happinessBoost} | Herding Boost: {(pet.herdingBoost * 100).toFixed(0)}%
+                            </p>
+                        </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => handleOpenDetails(pet)}
+                            className="h-8 text-xs flex items-center space-x-1"
+                        >
+                            <Info className="w-3 h-3" />
+                            <span>Details</span>
+                        </Button>
+                        {isOwned ? (
+                            <Badge className="bg-green-600">Owned</Badge>
+                        ) : (
+                            <Button
+                                onClick={() => onOpenPurchaseModal(pet)}
+                                disabled={!canAfford}
+                                className="h-8 flex items-center space-x-1 text-xs bg-green-600 hover:bg-green-700"
+                            >
+                                <DollarSign className="w-3 h-3" />
+                                <span>Buy Online</span>
+                            </Button>
+                        )}
+                        </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => handleOpenDetails(animal)}
-                        className="h-8 text-xs flex items-center space-x-1"
-                      >
-                        <Info className="w-3 h-3" />
-                        <span>Details</span>
-                      </Button>
-                      <Button
-                        onClick={() => onOpenPurchaseModal(animal)}
-                        disabled={!canAfford}
-                        className="h-8 flex items-center space-x-1 text-xs bg-green-600 hover:bg-green-700"
-                      >
-                        <DollarSign className="w-3 h-3" />
-                        <span>Buy Online</span>
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                })}
             </TabsContent>
             
-            {/* Buy Fertilizer Tab */}
+            {/* Buy Fertilizer Tab (omitted for brevity) */}
             <TabsContent value="buy-fertilizer" className="mt-4 space-y-3">
               {FERTILIZERS.map((fert) => {
                 const canAfford = cash >= fert.cost;
@@ -326,7 +374,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
               })}
             </TabsContent>
             
-            {/* Construction Tab */}
+            {/* Construction Tab (omitted for brevity) */}
             <TabsContent value="construction" className="mt-4 space-y-6">
                 <h3 className="text-xl font-semibold border-b pb-1 flex items-center">
                     <Factory className="w-5 h-5 mr-2 text-green-600" /> Infrastructure
@@ -488,7 +536,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
                     </div>
                 </div>
 
-                {/* Land Acquisition Section */}
+                {/* Land Acquisition Section (omitted for brevity) */}
                 <h3 className="text-xl font-semibold border-b pb-1 flex items-center">
                     <LandPlotIcon className="w-5 h-5 mr-2 text-amber-700" /> Land Acquisition
                 </h3>
@@ -529,7 +577,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
                 )}
             </TabsContent>
 
-            {/* Sell Tab Container (omitted for brevity, no changes needed here) */}
+            {/* Sell Tab Container (omitted for brevity) */}
             <TabsContent value="sell-harvest" className="mt-4 space-y-6">
               
               {/* Sub-section: Sell Harvest/Products */}

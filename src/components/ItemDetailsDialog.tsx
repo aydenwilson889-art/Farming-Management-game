@@ -2,13 +2,13 @@
 
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Crop, Animal, Fertilizer, SEASONS } from '@/lib/game-data';
-import { Clock, Leaf, DollarSign, Package, PawPrint, Zap, Droplet } from 'lucide-react';
+import { Crop, Animal, Fertilizer, Pet, DOG_TRAINING_COST, DOG_TREAT_COST } from '@/lib/game-data';
+import { Clock, Leaf, DollarSign, Package, PawPrint, Zap, Droplet, Heart, Dumbbell } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface ItemDetailsDialogProps {
   isOpen: boolean;
-  item: Crop | Animal | Fertilizer | null;
+  item: Crop | Animal | Fertilizer | Pet | null;
   onClose: () => void;
 }
 
@@ -16,10 +16,11 @@ const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({ isOpen, item, onC
   if (!item) return null;
 
   const isCrop = 'seedCost' in item;
-  const isAnimal = 'purchaseCost' in item;
+  const isAnimal = 'purchaseCost' in item && !('happinessBoost' in item);
   const isFertilizer = 'cost' in item;
+  const isPet = 'happinessBoost' in item;
   
-  const title = isCrop ? `${item.name} Details` : isAnimal ? `${item.name} Details` : `${item.name} Details`;
+  const title = isCrop ? `${item.name} Details` : isAnimal ? `${item.name} Details` : isFertilizer ? `${item.name} Details` : `${item.name} Details`;
   const Icon = item.icon;
 
   const renderCropDetails = (crop: Crop) => (
@@ -93,6 +94,36 @@ const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({ isOpen, item, onC
       </p>
     </div>
   );
+  
+  const renderPetDetails = (pet: Pet) => (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center">
+        <span className="font-medium flex items-center"><DollarSign className="w-4 h-4 mr-2 text-green-600" /> Purchase Cost:</span>
+        <Badge variant="secondary">${pet.purchaseCost}</Badge>
+      </div>
+      <div className="flex justify-between items-center">
+        <span className="font-medium flex items-center"><Heart className="w-4 h-4 mr-2 text-red-500 fill-red-500" /> Happiness Boost (Per Interaction):</span>
+        <Badge variant="secondary">+{pet.happinessBoost}%</Badge>
+      </div>
+      <div className="flex justify-between items-center">
+        <span className="font-medium flex items-center"><DollarSign className="w-4 h-4 mr-2 text-red-600" /> Daily Feed Cost:</span>
+        <Badge variant="secondary">-${pet.dailyFeedCost}</Badge>
+      </div>
+      <div className="flex justify-between items-center">
+        <span className="font-medium flex items-center"><PawPrint className="w-4 h-4 mr-2 text-amber-700" /> Herding/Quality Boost:</span>
+        <Badge variant="secondary">{(pet.herdingBoost * 100).toFixed(0)}%</Badge>
+      </div>
+      {pet.isDog && (
+        <div className="flex justify-between items-center">
+          <span className="font-medium flex items-center"><Dumbbell className="w-4 h-4 mr-2 text-blue-600" /> Dog Training Cost:</span>
+          <Badge variant="secondary">${DOG_TRAINING_COST}</Badge>
+        </div>
+      )}
+      <p className="text-sm text-muted-foreground pt-2">
+        Pets require daily feeding. Dogs must be trained to provide the full herding boost. Horses provide a smaller boost but are always ready.
+      </p>
+    </div>
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -108,7 +139,10 @@ const ItemDetailsDialog: React.FC<ItemDetailsDialogProps> = ({ isOpen, item, onC
         </DialogHeader>
         
         <div className="py-4">
-          {isCrop ? renderCropDetails(item as Crop) : isAnimal ? renderAnimalDetails(item as Animal) : renderFertilizerDetails(item as Fertilizer)}
+          {isCrop ? renderCropDetails(item as Crop) : 
+           isAnimal ? renderAnimalDetails(item as Animal) : 
+           isFertilizer ? renderFertilizerDetails(item as Fertilizer) :
+           isPet ? renderPetDetails(item as Pet) : null}
         </div>
       </DialogContent>
     </Dialog>

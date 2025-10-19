@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DollarSign, ShoppingCart, Percent, Minus, Plus } from 'lucide-react';
-import { Crop, Animal } from '@/lib/game-data';
+import { Crop, Animal, Fertilizer, Pet } from '@/lib/game-data';
 import { PurchaseDetails, calculatePurchaseDetails } from '@/hooks/use-farm-game';
 
 interface PurchaseModalProps {
   isOpen: boolean;
-  item: Crop | Animal | null;
+  item: Crop | Animal | Fertilizer | Pet | null;
   cash: number;
   onClose: () => void;
   onConfirm: (details: PurchaseDetails) => void;
@@ -37,6 +37,7 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ isOpen, item, cash, onClo
   if (!item || !details) return null;
 
   const isSeed = details.type === 'seed';
+  const isPet = details.type === 'pet';
   const itemName = isSeed ? `${item.name} Seeds` : item.name;
   const canAfford = cash >= details.totalCost;
 
@@ -56,6 +57,9 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ isOpen, item, cash, onClo
       onClose();
     }
   };
+  
+  // Pets are usually bought one at a time, but we allow quantity > 1 for flexibility
+  const maxQuantity = isPet ? 5 : Infinity; 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -85,9 +89,10 @@ const PurchaseModal: React.FC<PurchaseModalProps> = ({ isOpen, item, cash, onClo
                 value={quantity}
                 onChange={handleQuantityChange}
                 min={1}
+                max={maxQuantity}
                 className="text-center"
               />
-              <Button variant="outline" size="icon" onClick={handleIncrement}>
+              <Button variant="outline" size="icon" onClick={handleIncrement} disabled={quantity >= maxQuantity}>
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
