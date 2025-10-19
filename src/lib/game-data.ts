@@ -29,6 +29,8 @@ export interface LandPlot {
   size: number; // Number of tiles/units
   basePrice: number; // Cost to purchase the land
   isOwned: boolean;
+  description: string; // New property
+  soilType: string[]; // Array of crop IDs that thrive here
   tiles: PlotTile[];
 }
 
@@ -346,6 +348,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 9, // 3x3 grid for simplicity
     basePrice: 0, // Inherited
     isOwned: true,
+    description: "The original plot. Well-balanced soil, perfect for starting out.",
+    soilType: ['wheat', 'corn', 'carrot', 'tomato'], // Mixed
     tiles: createTiles(9, 'tile'),
   },
   {
@@ -354,6 +358,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 16, // 4x4 grid
     basePrice: 500,
     isOwned: false,
+    description: "Rich, loamy soil that retains moisture well. Ideal for root vegetables.",
+    soilType: ['carrot'],
     tiles: createTiles(16, 'tile-n'),
   },
   {
@@ -362,6 +368,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 25, // 5x5 grid
     basePrice: 1500,
     isOwned: false,
+    description: "Dry, sandy soil that drains quickly. Best suited for grains.",
+    soilType: ['wheat'],
     tiles: createTiles(25, 'tile-s'),
   },
   {
@@ -370,6 +378,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 36, // 6x6 grid
     basePrice: 4000,
     isOwned: false,
+    description: "Volcanic soil, high in nutrients. Excellent for fruit-bearing plants.",
+    soilType: ['tomato', 'corn'],
     tiles: createTiles(36, 'tile-e'),
   },
   // 15 new plots start here
@@ -379,6 +389,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 49, // 7x7 grid
     basePrice: 8000,
     isOwned: false,
+    description: "Deep, fertile soil. Great for Wheat and Carrots.",
+    soilType: ['wheat', 'carrot'],
     tiles: createTiles(49, 'tile-p5'),
   },
   {
@@ -387,6 +399,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 64, // 8x8 grid
     basePrice: 15000,
     isOwned: false,
+    description: "Moist, clay-heavy soil near the river. Favors Corn and Tomatoes.",
+    soilType: ['corn', 'tomato'],
     tiles: createTiles(64, 'tile-p6'),
   },
   {
@@ -395,6 +409,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 81, // 9x9 grid
     basePrice: 25000,
     isOwned: false,
+    description: "A balanced mix of all soil types, offering a slight boost to all crops.",
+    soilType: ['wheat', 'corn', 'carrot', 'tomato'], // Mixed
     tiles: createTiles(81, 'tile-p7'),
   },
   {
@@ -403,6 +419,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 100, // 10x10 grid
     basePrice: 40000,
     isOwned: false,
+    description: "Thin, rocky soil. Only the hardiest crops, like Wheat, thrive here.",
+    soilType: ['wheat'],
     tiles: createTiles(100, 'tile-p8'),
   },
   {
@@ -411,6 +429,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 121, // 11x11 grid
     basePrice: 60000,
     isOwned: false,
+    description: "Excellent drainage, perfect for Carrots and Tomatoes.",
+    soilType: ['carrot', 'tomato'],
     tiles: createTiles(121, 'tile-p9'),
   },
   {
@@ -419,6 +439,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 144, // 12x12 grid
     basePrice: 90000,
     isOwned: false,
+    description: "Mineral-rich soil, highly beneficial for Corn.",
+    soilType: ['corn'],
     tiles: createTiles(144, 'tile-p10'),
   },
   {
@@ -427,6 +449,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 169, // 13x13 grid
     basePrice: 130000,
     isOwned: false,
+    description: "Silt deposits make this soil highly fertile for all crops.",
+    soilType: ['wheat', 'corn', 'carrot', 'tomato'], // Mixed
     tiles: createTiles(169, 'tile-p11'),
   },
   {
@@ -435,6 +459,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 196, // 14x14 grid
     basePrice: 180000,
     isOwned: false,
+    description: "Exposed to sun and wind. Best for Wheat and Corn.",
+    soilType: ['wheat', 'corn'],
     tiles: createTiles(196, 'tile-p12'),
   },
   {
@@ -443,6 +469,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 225, // 15x15 grid
     basePrice: 250000,
     isOwned: false,
+    description: "Very wet soil, ideal for moisture-loving Tomatoes.",
+    soilType: ['tomato'],
     tiles: createTiles(225, 'tile-p13'),
   },
   {
@@ -451,6 +479,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 256, // 16x16 grid
     basePrice: 350000,
     isOwned: false,
+    description: "Cold, dense soil. Only Carrots can handle the conditions.",
+    soilType: ['carrot'],
     tiles: createTiles(256, 'tile-p14'),
   },
   {
@@ -459,6 +489,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 289, // 17x17 grid
     basePrice: 500000,
     isOwned: false,
+    description: "High altitude, dry air. Favors Wheat and Carrots.",
+    soilType: ['wheat', 'carrot'],
     tiles: createTiles(289, 'tile-p15'),
   },
   {
@@ -467,6 +499,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 324, // 18x18 grid
     basePrice: 750000,
     isOwned: false,
+    description: "Perfectly balanced, highly fertile soil. Excellent for all crops.",
+    soilType: ['wheat', 'corn', 'carrot', 'tomato'], // Mixed
     tiles: createTiles(324, 'tile-p16'),
   },
   {
@@ -475,6 +509,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 361, // 19x19 grid
     basePrice: 1000000,
     isOwned: false,
+    description: "Extremely rich, dark soil. Best for Corn and Tomatoes.",
+    soilType: ['corn', 'tomato'],
     tiles: createTiles(361, 'tile-p17'),
   },
   {
@@ -483,6 +519,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 400, // 20x20 grid
     basePrice: 1500000,
     isOwned: false,
+    description: "Vast, open land with deep, reliable soil. Good for Wheat.",
+    soilType: ['wheat'],
     tiles: createTiles(400, 'tile-p18'),
   },
   {
@@ -491,6 +529,8 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 441, // 21x21 grid
     basePrice: 2500000,
     isOwned: false,
+    description: "Untamed, but incredibly rich soil, boosting all crops significantly.",
+    soilType: ['wheat', 'corn', 'carrot', 'tomato'], // Mixed
     tiles: createTiles(441, 'tile-p19'),
   },
 ];
@@ -501,10 +541,13 @@ export const INITIAL_GREENHOUSE_PLOT: LandPlot = {
     size: GREENHOUSE_SIZE, // 3x2 grid
     basePrice: GREENHOUSE_COST,
     isOwned: false,
+    description: "Climate-controlled environment. Soil type is irrelevant here.",
+    soilType: [], // Soil type irrelevant in greenhouse
     tiles: createTiles(GREENHOUSE_SIZE, 'gh-tile'),
 };
 
 export const INITIAL_GAME_STATE: GameState = {
+// ... (rest of state remains the same)
   cash: 100, // Starting profit
   day: 1,
   currentSeason: 'Spring',
@@ -520,6 +563,7 @@ export const INITIAL_GAME_STATE: GameState = {
 // --- Utility Functions ---
 
 export const getCropById = (id: string): Crop | undefined => {
+// ... (rest of utilities remain the same)
   return CROPS.find(c => c.id === id);
 };
 

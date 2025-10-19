@@ -8,6 +8,7 @@ import { RNG_EVENTS, RNGEvent } from '@/lib/rng-events';
 import { showSuccess, showError } from '@/utils/toast';
 
 const BULK_DISCOUNT = 0.05; // 5% discount
+const SOIL_BONUS_MULTIPLIER = 1.15; // 15% growth bonus for optimal soil
 
 export interface PurchaseDetails {
     type: 'seed' | 'animal' | 'fertilizer';
@@ -183,6 +184,11 @@ export function useFarmGame() {
                             // Optimal season bonus applies on top of base/greenhouse multiplier
                             if (crop.optimalSeason === newSeason) {
                                 growthMultiplier *= 1.2;
+                            }
+                            
+                            // Soil Type Bonus (Only applies outside the greenhouse)
+                            if (!isGreenhouse && plot.soilType.includes(crop.id)) {
+                                growthMultiplier *= SOIL_BONUS_MULTIPLIER; // 15% bonus
                             }
                             
                             let growthIncrement = (1 / crop.growthTime) * 100 * growthMultiplier;
@@ -483,7 +489,7 @@ export function useFarmGame() {
         }
 
         // 3. Consume fertilizer and update plot
-        const newFertilizerInventory = { ...prev.fertilizerInventory, [fertilizerId]: prev.fertilizerInventory[fertilizerId] - 1 };
+        const newFertilizerInventory = { ...prev.fertilizerInventory, [fertilizerId]: prev.fertilizerInventory[fertililzerId] - 1 };
         if (newFertilizerInventory[fertilizerId] === 0) delete newFertilizerInventory[fertilizerId];
 
         const updatedPlot = { ...targetPlot, tiles: updatedTiles };

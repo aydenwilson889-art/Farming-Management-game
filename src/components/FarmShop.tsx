@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, getAnimalProductById, FERTILIZERS, Fertilizer, LandPlot, GREENHOUSE_COST, BUTCHER_STAND_COST, MEAT_PRODUCT_IDS } from '@/lib/game-data';
-import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf, Info, Droplet, LandPlot as LandPlotIcon, CheckCircle, Factory, Store } from 'lucide-react';
+import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf, Info, Droplet, LandPlot as LandPlotIcon, CheckCircle, Factory, Store, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import ItemDetailsDialog from './ItemDetailsDialog';
@@ -100,6 +100,14 @@ const FarmShop: React.FC<FarmShopProps> = ({
   // The useButcherStand flag is removed from the component interface and usage, as the logic is now handled by inventory separation.
   const handleSellRegularItem = (itemId: string, quantity: number) => {
       onSellItem(itemId, quantity);
+  };
+  
+  const getSoilTypeDisplay = (soilType: string[]) => {
+      if (soilType.length === 0) return "N/A";
+      if (soilType.length >= 4) return "Mixed (All Crops)";
+      
+      const cropNames = soilType.map(id => CROPS.find(c => c.id === id)?.name || id);
+      return cropNames.join(', ');
   };
 
 
@@ -353,19 +361,31 @@ const FarmShop: React.FC<FarmShopProps> = ({
                     unownedLand.map(plot => {
                         const canAfford = cash >= plot.basePrice;
                         return (
-                            <div key={plot.id} className="flex justify-between items-center p-3 border rounded-lg bg-card shadow-sm">
-                                <div>
-                                    <h4 className="font-semibold">{plot.name} ({plot.size} tiles)</h4>
-                                    <p className="text-sm text-muted-foreground">Cost: ${plot.basePrice.toLocaleString()}</p>
+                            <div key={plot.id} className="flex flex-col p-3 border rounded-lg bg-card shadow-sm space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <h4 className="font-semibold">{plot.name} ({plot.size} tiles)</h4>
+                                        <p className="text-sm text-muted-foreground">Cost: ${plot.basePrice.toLocaleString()}</p>
+                                    </div>
+                                    <Button 
+                                        onClick={() => onBuyLand(plot)}
+                                        disabled={!canAfford}
+                                        className="h-8"
+                                    >
+                                        <DollarSign className="w-4 h-4 mr-1" />
+                                        Buy Land
+                                    </Button>
                                 </div>
-                                <Button 
-                                    onClick={() => onBuyLand(plot)}
-                                    disabled={!canAfford}
-                                    className="h-8"
-                                >
-                                    <DollarSign className="w-4 h-4 mr-1" />
-                                    Buy Land
-                                </Button>
+                                <div className="text-xs space-y-1 pt-2 border-t">
+                                    <p className="text-muted-foreground italic">{plot.description}</p>
+                                    <div className="flex items-center space-x-2">
+                                        <Zap className="w-3 h-3 text-yellow-500" />
+                                        <span className="font-medium">Optimal Soil For:</span>
+                                        <Badge variant="secondary" className="text-xs">
+                                            {getSoilTypeDisplay(plot.soilType)}
+                                        </Badge>
+                                    </div>
+                                </div>
                             </div>
                         );
                     })
