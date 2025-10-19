@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import FarmPlots from './FarmPlots';
 import FarmShop from './FarmShop';
 import AnimalPen from './AnimalPen';
-import AnimalFeeding from './AnimalFeeding'; // New import
+import AnimalFeeding from './AnimalFeeding';
+import MeatSales from './MeatSales'; // New import
 import PurchaseModal from './PurchaseModal';
 import AdminPanel from './AdminPanel';
 import { useFarmGame, PurchaseDetails } from '@/hooks/use-farm-game';
@@ -22,13 +23,14 @@ const FarmManager: React.FC = () => {
     availableLand,
     executePurchase,
     handleSellAnimal,
-    handleButcherAnimal, // New handler
-    handleFeedAnimal, // New handler
+    handleButcherAnimal,
+    handleFeedAnimal,
     handleSellItem,
+    handleSellMeatToRestaurant, // New handler
     handleTileAction,
     handleBuyLand,
     handleBuyGreenhouse,
-    handleBuyButcherStand, // New handler
+    handleBuyButcherStand,
     handleApplyFertilizer,
     adjustCash,
     adjustDay,
@@ -36,7 +38,7 @@ const FarmManager: React.FC = () => {
   } = useFarmGame();
 
   const [selectedCropId, setSelectedCropId] = useState<string | null>(null);
-  const [selectedFertilizerId, setSelectedFertilizerId] = useState<string | null>(null); // New state for fertilizer
+  const [selectedFertilizerId, setSelectedFertilizerId] = useState<string | null>(null);
   const [modalItem, setModalItem] = useState<Crop | Animal | Fertilizer | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const isModalOpen = !!modalItem;
@@ -174,10 +176,10 @@ const FarmManager: React.FC = () => {
           <FarmPlots 
             plots={allOwnedPlots} 
             selectedCropId={selectedCropId}
-            selectedFertilizerId={selectedFertilizerId} // Pass selected fertilizer
+            selectedFertilizerId={selectedFertilizerId}
             currentSeason={gameState.currentSeason}
             onTileAction={(plotId, tileId, action) => handleTileAction(plotId, tileId, action, selectedCropId)}
-            onApplyFertilizer={handleApplyFertilizer} // Pass fertilizer handler
+            onApplyFertilizer={handleApplyFertilizer}
           />
           
           <h2 className="text-2xl font-bold border-b pb-2">Livestock Management</h2>
@@ -194,6 +196,14 @@ const FarmManager: React.FC = () => {
           
           {/* Product Animal Production */}
           <AnimalPen ownedAnimals={producerAnimals} />
+          
+          {/* Meat Sales (Freezer/Restaurant) */}
+          {gameState.hasButcherStand && (
+            <MeatSales
+                freezerInventory={gameState.freezerInventory}
+                onSellMeatToRestaurant={handleSellMeatToRestaurant}
+            />
+          )}
         </div>
         
         {/* Column 2: Shop and Construction */}
@@ -202,14 +212,15 @@ const FarmManager: React.FC = () => {
           <FarmShop 
             cash={gameState.cash}
             inventory={gameState.inventory}
+            freezerInventory={gameState.freezerInventory} // Pass freezer inventory to filter sell tab
             fertilizerInventory={gameState.fertilizerInventory} 
             ownedAnimals={gameState.ownedAnimals}
             availableLand={availableLand} 
             isGreenhouseOwned={!!gameState.greenhousePlot} 
-            hasButcherStand={gameState.hasButcherStand} // Pass new state
+            hasButcherStand={gameState.hasButcherStand}
             onBuyLand={handleBuyLand} 
             onBuyGreenhouse={handleBuyGreenhouse} 
-            onBuyButcherStand={handleBuyButcherStand} // Pass new handler
+            onBuyButcherStand={handleBuyButcherStand}
             selectedCropId={selectedCropId}
             selectedFertilizerId={selectedFertilizerId}
             onSelectCrop={handleSelectCrop} 

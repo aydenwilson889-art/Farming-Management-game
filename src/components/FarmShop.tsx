@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, getAnimalProductById, FERTILIZERS, Fertilizer, LandPlot, GREENHOUSE_COST, BUTCHER_STAND_COST } from '@/lib/game-data';
+import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, getAnimalProductById, FERTILIZERS, Fertilizer, LandPlot, GREENHOUSE_COST, BUTCHER_STAND_COST, MEAT_PRODUCT_IDS } from '@/lib/game-data';
 import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf, Info, Droplet, LandPlot as LandPlotIcon, CheckCircle, Factory, Store } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -13,26 +13,28 @@ import ItemDetailsDialog from './ItemDetailsDialog';
 interface FarmShopProps {
   cash: number;
   inventory: Record<string, number>;
+  freezerInventory: Record<string, number>; // New prop
   fertilizerInventory: Record<string, number>;
   ownedAnimals: Animal[];
   availableLand: LandPlot[]; 
   isGreenhouseOwned: boolean; 
-  hasButcherStand: boolean; // New prop
+  hasButcherStand: boolean;
   selectedCropId: string | null;
   selectedFertilizerId: string | null;
   onSelectCrop: (cropId: string | null) => void;
   onSelectFertilizer: (fertId: string | null) => void;
   onOpenPurchaseModal: (item: Crop | Animal | Fertilizer) => void; 
-  onSellItem: (itemId: string, quantity: number, useButcherStand: boolean) => void; // Updated signature
+  onSellItem: (itemId: string, quantity: number) => void; // Removed useButcherStand flag, as this handler now only sells non-freezer items
   onSellAnimal: (animalId: string, quantity: number) => void; 
   onBuyLand: (plot: LandPlot) => void; 
   onBuyGreenhouse: () => void; 
-  onBuyButcherStand: () => void; // New handler
+  onBuyButcherStand: () => void;
 }
 
 const FarmShop: React.FC<FarmShopProps> = ({ 
   cash, 
   inventory, 
+  freezerInventory, // Destructure new prop
   fertilizerInventory, 
   ownedAnimals, 
   availableLand,
@@ -52,7 +54,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
   
   const [detailsItem, setDetailsItem] = useState<Crop | Animal | Fertilizer | null>(null);
 
-  // Filter inventory into crops and animal products
+  // Filter inventory into crops and animal products (excluding meat if the stand is owned, as that goes to the freezer)
   const inventoryItems = Object.entries(inventory).map(([itemId, quantity]) => {
     const crop = CROPS.find(c => c.id === itemId);
     const product = ANIMAL_PRODUCTS.find(p => p.id === itemId);
@@ -61,14 +63,27 @@ const FarmShop: React.FC<FarmShopProps> = ({
       return { id: itemId, name: crop.name, quantity, basePrice: crop.basePrice, type: 'crop' };
     }
     if (product) {
-      return { id: itemId, name: product.name, quantity, basePrice: product.basePrice, type: 'product', isMeat: product.id.endsWith('_meat') || product.id === 'pork_meat' };
+      const isMeat = MEAT_PRODUCT_IDS.includes(itemId);
+      
+      // If the player owns the stand, meat should only be in the freezer, not here.
+      // If the player does NOT own the stand, meat is here and subject to 50% tax.
+      if (isMeat && hasButcherStand) {
+          // If the stand is owned, meat in the regular inventory shouldn't exist (or shouldn't be sold here).
+          // However, since the game logic ensures meat goes to the freezer if the stand is owned, 
+          // we only need to check if it's meat and calculate the tax if the stand is NOT owned.
+          // We keep the item if it's in the inventory, regardless of type, but the logic below handles the tax/value.
+      }
+      
+      return { id: itemId, name: product.name, quantity, basePrice: product.basePrice, type: 'product', isMeat };
     }
     return null;
   }).filter(item => item !== null);
 
   const totalInventoryValue = inventoryItems.reduce((total, item) => {
     if (item) {
-      return total + item.quantity * item.basePrice;
+      const value = item.quantity * item.basePrice;
+      // Apply 50% tax reduction if it's meat sold via the default market (which is what this inventory represents if meat is present)
+      return total + (item.isMeat ? Math.floor(value * 0.5) : value);
     }
     return total;
   }, 0);
@@ -81,22 +96,10 @@ const FarmShop: React.FC<FarmShopProps> = ({
     setDetailsItem(item);
   };
   
-  const handleSellMeat = (item: NonNullable<typeof inventoryItems[number]>, useButcherStand: boolean) => {
-    // Calculate value based on selling method
-    let value = item.quantity * item.basePrice;
-    let sellMethod = "Market";
-    
-    if (item.isMeat) {
-        if (useButcherStand) {
-            sellMethod = "Personal Stand";
-        } else {
-            // Butcher Shop tax: 50% reduction
-            value = Math.floor(value * 0.5);
-            sellMethod = "Butcher Shop (50% Tax)";
-        }
-    }
-    
-    onSellItem(item.id, item.quantity, useButcherStand);
+  // The onSellItem handler now only sells items from the regular inventory (crops, non-meat products, and meat processed without the stand).
+  // The useButcherStand flag is removed from the component interface and usage, as the logic is now handled by inventory separation.
+  const handleSellRegularItem = (itemId: string, quantity: number) => {
+      onSellItem(itemId, quantity);
   };
 
 
@@ -285,7 +288,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
                             <h4 className="font-semibold flex items-center">
                                 <Store className="w-4 h-4 mr-1 text-red-600" /> Personal Butcher Stand
                             </h4>
-                            <p className="text-xs text-muted-foreground">Sell meat products without the 50% Butcher Shop tax.</p>
+                            <p className="text-xs text-muted-foreground">Process meat for freezer storage and restaurant sales.</p>
                         </div>
                         
                         {hasButcherStand ? (
@@ -385,7 +388,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
                         Meat Sales Method:
                     </span>
                     <Badge variant={hasButcherStand ? "default" : "destructive"} className="text-sm">
-                        {hasButcherStand ? "Personal Butcher Stand (No Tax)" : "Butcher Shop (50% Tax)"}
+                        {hasButcherStand ? "Restaurant Sales (via Freezer)" : "Butcher Shop (50% Tax)"}
                     </Badge>
                 </div>
                 
@@ -403,8 +406,8 @@ const FarmShop: React.FC<FarmShopProps> = ({
                     
                     {inventoryItems.map((item) => {
                       const isMeat = item.type === 'product' && item.isMeat;
-                      const sellMethod = isMeat && !hasButcherStand ? 'Butcher Shop' : 'Market';
-                      const sellValue = isMeat && !hasButcherStand ? Math.floor(item.quantity * item.basePrice * 0.5) : item.quantity * item.basePrice;
+                      const sellMethod = isMeat ? 'Butcher Shop' : 'Market';
+                      const sellValue = isMeat ? Math.floor(item.quantity * item.basePrice * 0.5) : item.quantity * item.basePrice;
 
                       return (
                         <div 
@@ -421,7 +424,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
                             </div>
                           </div>
                           <Button
-                            onClick={() => onSellItem(item.id, item.quantity, hasButcherStand)}
+                            onClick={() => handleSellRegularItem(item.id, item.quantity)}
                             variant="destructive"
                             className="h-8 flex items-center space-x-1"
                           >
@@ -435,7 +438,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
                 )}
               </div>
 
-              {/* Sub-section: Sell Animals (Now only for non-meat animals, which are currently only producers) */}
+              {/* Sub-section: Sell Animals (Direct Sale) */}
               <div className="space-y-3 border p-3 rounded-lg">
                 <h4 className="text-lg font-semibold flex items-center">
                   <PawPrint className="w-5 h-5 mr-2" /> Livestock (Direct Sale)

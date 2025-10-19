@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { 
   INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS, Animal, ANIMALS, getAnimalProductById, 
   SEASONS, DAYS_PER_SEASON, TAX_RATE, INITIAL_GREENHOUSE_PLOT, GREENHOUSE_COST, Season, Fertilizer, getFertilizerById,
-  calculateMeatPriceMultiplier, BUTCHER_STAND_COST
+  calculateMeatPriceMultiplier, BUTCHER_STAND_COST, MEAT_PRODUCT_IDS, getRestaurantById, Restaurant
 } from '@/lib/game-data';
 import { showSuccess, showError } from '@/utils/toast';
 
@@ -113,7 +113,7 @@ export function useFarmGame() {
             showError(`Taxes collected! Paid $${taxAmount.toLocaleString()} (10% of cash).`);
         }
         
-        // 3. Advance Crop Growth Stages (Omitted for brevity, assuming existing logic is fine)
+        // 3. Advance Crop Growth Stages
         const isWinter = newSeason === 'Winter';
 
         const processPlotGrowth = (plot: LandPlot): LandPlot => {
@@ -474,44 +474,43 @@ export function useFarmGame() {
 
         // 1. Calculate meat yield and price multiplier
         const multiplier = calculateMeatPriceMultiplier(animal.weight, animal.optimalWeight, animal.minWeight, animal.maxWeight);
-        const basePrice = animal.product.basePrice;
-        
-        // Assume 1 unit of meat product per animal unit
         const meatYield = animal.quantity; 
-        const totalValue = Math.floor(meatYield * basePrice * multiplier);
         
-        // 2. Add meat product to inventory
+        // 2. Determine where the meat goes (Inventory or Freezer)
         let newInventory = { ...prev.inventory };
-        newInventory[animal.product.id] = (newInventory[animal.product.id] || 0) + meatYield;
+        let newFreezerInventory = { ...prev.freezerInventory };
+        const productId = animal.product.id;
+        
+        if (prev.hasButcherStand) {
+            // Meat goes into the freezer (ready for restaurant sales)
+            newFreezerInventory[productId] = (newFreezerInventory[productId] || 0) + meatYield;
+            showSuccess(`Butchered ${animal.quantity} ${animal.name}(s) via Personal Stand. ${meatYield} units of ${animal.product.name} stored in freezer.`);
+        } else {
+            // Meat goes directly to regular inventory (ready for immediate sale at Butcher Shop tax rate)
+            newInventory[productId] = (newInventory[productId] || 0) + meatYield;
+            showSuccess(`Butchered ${animal.quantity} ${animal.name}(s) via Butcher Shop. ${meatYield} units of ${animal.product.name} added to inventory.`);
+        }
         
         // 3. Remove animal from ownedAnimals (since they are butchered)
         const newOwnedAnimals = prev.ownedAnimals.filter(a => a.id !== animalId);
         
-        showSuccess(`Butchered ${animal.quantity} ${animal.name}(s). Yielded ${meatYield} units of ${animal.product.name}. Quality Multiplier: ${multiplier.toFixed(2)}x.`);
-
         return {
             ...prev,
             inventory: newInventory,
+            freezerInventory: newFreezerInventory,
             ownedAnimals: newOwnedAnimals,
         };
     });
   }, []);
   
-  // This handler is now only used for selling non-meat animals (which we removed the ability to sell)
-  // or for selling products/crops. We will keep it for products/crops.
+  // Handles selling non-meat animals directly (deprecated but kept for structure)
   const handleSellAnimal = useCallback((animalId: string, quantity: number) => {
-    // This function is now deprecated for meat animals, which must be butchered first.
-    // We will keep it for consistency with the FarmShop component's existing sell logic for livestock, 
-    // but ensure it only handles non-meat animals (like sheep for wool, if we allowed selling them directly).
-    // Since the user requested to sell meat animals via butchering, we will remove the ability to sell them directly here.
-    
     const animalType = ANIMALS.find(a => a.id === animalId);
     if (!animalType || animalType.isMeatAnimal) {
         showError("Meat animals must be butchered first.");
         return;
     }
     
-    // If we decide to allow selling non-meat animals directly (e.g., selling a layer hen):
     const sellPricePerUnit = Math.floor(animalType.purchaseCost * 0.75);
     const totalSellValue = quantity * sellPricePerUnit;
 
@@ -535,7 +534,8 @@ export function useFarmGame() {
   }, []);
 
 
-  const handleSellItem = useCallback((itemId: string, quantity: number, useButcherStand: boolean = false) => {
+  // Handles selling crops and non-meat products (eggs, milk, wool, honey) AND meat products processed by the external Butcher Shop (i.e., those in regular inventory)
+  const handleSellItem = useCallback((itemId: string, quantity: number) => {
     const crop = getCropById(itemId);
     const product = getAnimalProductById(itemId);
     
@@ -555,19 +555,13 @@ export function useFarmGame() {
 
     let value = quantity * basePrice;
     
-    // Apply Butcher Shop tax if selling meat products without a Personal Butcher Stand
-    if (product && (product.id.endsWith('_meat') || product.id === 'pork_meat')) {
-        if (!gameState.hasButcherStand && !useButcherStand) {
-            // Butcher Shop tax: takes away half the price (50% reduction)
-            value = Math.floor(value * 0.5);
-            showSuccess(`Butcher Shop tax applied. Sold ${quantity.toLocaleString()} units of ${itemName} for $${value.toLocaleString()}.`);
-        } else if (useButcherStand) {
-            // Selling via Personal Butcher Stand (no tax)
-            showSuccess(`Sold ${quantity.toLocaleString()} units of ${itemName} via Personal Butcher Stand for $${value.toLocaleString()}.`);
-        } else {
-            // Selling via default market (no tax if not meat or if Butcher Stand is owned)
-            showSuccess(`Sold ${quantity.toLocaleString()} units of ${itemName} for $${value.toLocaleString()}.`);
-        }
+    // Check if this is a meat product sold via the default market (which implies the 50% tax)
+    const isMeatProduct = MEAT_PRODUCT_IDS.includes(itemId);
+    
+    if (isMeatProduct) {
+        // Butcher Shop tax: takes away half the price (50% reduction)
+        value = Math.floor(value * 0.5);
+        showSuccess(`Butcher Shop tax applied. Sold ${quantity.toLocaleString()} units of ${itemName} for $${value.toLocaleString()}.`);
     } else {
         // Selling non-meat items (crops, eggs, milk, wool, honey)
         showSuccess(`Sold ${quantity.toLocaleString()} units of ${itemName} for $${value.toLocaleString()}.`);
@@ -575,6 +569,8 @@ export function useFarmGame() {
     
     setGameState(prev => {
       const newInventory = { ...prev.inventory };
+      // Ensure we only remove the quantity sold, although currently FarmShop sells all.
+      // Since FarmShop currently sells ALL, we delete the entry.
       delete newInventory[itemId];
       
       return {
@@ -583,7 +579,48 @@ export function useFarmGame() {
         inventory: newInventory,
       };
     });
-  }, [gameState.hasButcherStand]);
+  }, []);
+  
+  
+  // New handler for selling meat from the freezer to restaurants
+  const handleSellMeatToRestaurant = useCallback((restaurantId: string, productId: string, quantity: number) => {
+      const restaurant = getRestaurantById(restaurantId);
+      const product = getAnimalProductById(productId);
+      
+      if (!restaurant || !product || !MEAT_PRODUCT_IDS.includes(productId)) {
+          showError("Invalid sale attempt.");
+          return;
+      }
+      
+      setGameState(prev => {
+          const availableQuantity = prev.freezerInventory[productId] || 0;
+          if (availableQuantity < quantity) {
+              showError(`Insufficient ${product.name} in the freezer.`);
+              return prev;
+          }
+          
+          const basePrice = product.basePrice;
+          const multiplier = restaurant.demand[productId] || 1.0; // Default multiplier is 1.0
+          
+          const unitValue = Math.floor(basePrice * multiplier);
+          const totalValue = quantity * unitValue;
+          
+          const newFreezerInventory = { ...prev.freezerInventory };
+          newFreezerInventory[productId] -= quantity;
+          if (newFreezerInventory[productId] <= 0) {
+              delete newFreezerInventory[productId];
+          }
+          
+          showSuccess(`Sold ${quantity} units of ${product.name} to ${restaurant.name} for $${totalValue.toLocaleString()} (${(multiplier * 100).toFixed(0)}% price).`);
+          
+          return {
+              ...prev,
+              cash: prev.cash + totalValue,
+              freezerInventory: newFreezerInventory,
+          };
+      });
+  }, []);
+
 
   const handleTileAction = useCallback((plotId: string, tileId: string, action: 'plant' | 'harvest', selectedCropId: string | null) => {
     setGameState(prev => {
@@ -720,7 +757,7 @@ export function useFarmGame() {
             cash: prev.cash - BUTCHER_STAND_COST,
             hasButcherStand: true,
         }));
-        showSuccess("Personal Butcher Stand purchased! You can now sell meat products without the Butcher Shop tax.");
+        showSuccess("Personal Butcher Stand purchased! You can now process meat products for restaurant sales.");
     } else {
         showError("Insufficient funds to purchase the Personal Butcher Stand.");
     }
@@ -731,14 +768,15 @@ export function useFarmGame() {
     gameState,
     availableLand,
     executePurchase,
-    handleSellAnimal, // Kept for non-meat animals (though currently none exist)
-    handleButcherAnimal, // New handler for meat animals
-    handleFeedAnimal, // New handler for feeding
+    handleSellAnimal,
+    handleButcherAnimal,
+    handleFeedAnimal,
     handleSellItem,
+    handleSellMeatToRestaurant, // Export new handler
     handleTileAction,
     handleBuyLand,
     handleBuyGreenhouse,
-    handleBuyButcherStand, // New handler
+    handleBuyButcherStand,
     handleApplyFertilizer,
     adjustCash,
     adjustDay,

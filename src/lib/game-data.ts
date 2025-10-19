@@ -1,4 +1,4 @@
-import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet, Beef, Drumstick, Factory } from 'lucide-react';
+import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet, Beef, Drumstick, Factory, Utensils, ChefHat, Soup, Steak } from 'lucide-react';
 
 // --- Types ---
 
@@ -68,12 +68,21 @@ export interface Fertilizer {
   growthBoost: number; // Percentage boost applied instantly (e.g., 0.25 for 25%)
 }
 
+export interface Restaurant {
+    id: string;
+    name: string;
+    icon: LucideIcon;
+    demand: Record<string, number>; // ProductId -> Price Multiplier (e.g., pork_meat: 1.2)
+    description: string;
+}
+
 export interface GameState {
   cash: number;
   day: number;
   currentSeason: Season; // New property
   greenhousePlot: LandPlot | null; // The dedicated greenhouse plot
-  inventory: Record<string, number>; // CropId/AnimalProductId -> Quantity
+  inventory: Record<string, number>; // CropId/AnimalProductId -> Quantity (Default market/Butcher Shop sales)
+  freezerInventory: Record<string, number>; // Meat ProductId -> Quantity (Personal Butcher Stand sales, ready for restaurants)
   fertilizerInventory: Record<string, number>; // FertilizerId -> Quantity
   ownedLand: LandPlot[];
   ownedAnimals: Animal[];
@@ -127,6 +136,46 @@ export const ANIMAL_PRODUCTS: AnimalProduct[] = [
   { id: 'chicken_meat', name: 'Chicken Meat', icon: Drumstick, basePrice: 6 },
   { id: 'honey', name: 'Honey', icon: Bird, basePrice: 6 },
 ];
+
+// List of meat product IDs
+export const MEAT_PRODUCT_IDS = ANIMAL_PRODUCTS.filter(p => p.id.endsWith('_meat') || p.id === 'pork_meat').map(p => p.id);
+
+
+export const RESTAURANTS: Restaurant[] = [
+    {
+        id: 'local_diner',
+        name: 'The Local Diner',
+        icon: Soup,
+        description: 'Buys large quantities of cheaper meats for daily specials.',
+        demand: {
+            'chicken_meat': 1.1, // 10% bonus
+            'pork_meat': 1.05, // 5% bonus
+            'beef_meat': 0.9, // 10% penalty
+        }
+    },
+    {
+        id: 'steakhouse',
+        name: 'Prime Steakhouse',
+        icon: Steak,
+        description: 'Demands high-quality beef, pays a premium for it.',
+        demand: {
+            'beef_meat': 1.3, // 30% bonus
+            'pork_meat': 0.8, // 20% penalty
+            'fish_meat': 1.1, // 10% bonus
+        }
+    },
+    {
+        id: 'seafood_shack',
+        name: 'Seafood Shack',
+        icon: Fish,
+        description: 'Specializes in fish and poultry.',
+        demand: {
+            'fish_meat': 1.2, // 20% bonus
+            'chicken_meat': 1.15, // 15% bonus
+        }
+    }
+];
+
 
 export const ANIMALS: Animal[] = [
   // Layer Hen (Egg Producer)
@@ -359,6 +408,7 @@ export const INITIAL_GAME_STATE: GameState = {
   currentSeason: 'Spring',
   greenhousePlot: null, // Starts unowned
   inventory: {},
+  freezerInventory: {}, // New inventory for meat processed via Personal Butcher Stand
   fertilizerInventory: {}, // New inventory for fertilizer
   ownedLand: INITIAL_LAND_PLOTS.filter(p => p.isOwned),
   ownedAnimals: [],
@@ -377,6 +427,10 @@ export const getAnimalProductById = (id: string): AnimalProduct | undefined => {
 
 export const getFertilizerById = (id: string): Fertilizer | undefined => {
   return FERTILIZERS.find(f => f.id === id);
+};
+
+export const getRestaurantById = (id: string): Restaurant | undefined => {
+    return RESTAURANTS.find(r => r.id === id);
 };
 
 /**
