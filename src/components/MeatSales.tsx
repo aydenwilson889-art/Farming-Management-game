@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DollarSign, Freezer, Utensils, Package, ArrowRight, ChefHat } from 'lucide-react';
+import { DollarSign, Utensils, Package, ArrowRight, ChefHat } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ANIMAL_PRODUCTS, getAnimalProductById, RESTAURANTS, Restaurant, MEAT_PRODUCT_IDS } from '@/lib/game-data';
 import { cn } from '@/lib/utils';
@@ -54,7 +54,7 @@ const MeatSales: React.FC<MeatSalesProps> = ({ freezerInventory, onSellMeatToRes
     <Card className="w-full shadow-lg">
       <CardHeader>
         <CardTitle className="text-2xl flex items-center text-red-600 dark:text-red-400">
-          <Freezer className="w-6 h-6 mr-2" />
+          <Package className="w-6 h-6 mr-2" />
           Freezer & Restaurant Sales
         </CardTitle>
         <CardDescription>
