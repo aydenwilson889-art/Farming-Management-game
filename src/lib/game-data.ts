@@ -375,7 +375,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   // 15 new plots start here
   {
     id: 'plot_5',
-    name: 'West Field',
+    name: 'The Orchard',
     size: 49, // 7x7 grid
     basePrice: 8000,
     isOwned: false,
@@ -383,7 +383,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   },
   {
     id: 'plot_6',
-    name: 'River Bend',
+    name: 'Willow Creek',
     size: 64, // 8x8 grid
     basePrice: 15000,
     isOwned: false,
@@ -391,7 +391,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   },
   {
     id: 'plot_7',
-    name: 'Hillside',
+    name: 'Sunken Meadow',
     size: 81, // 9x9 grid
     basePrice: 25000,
     isOwned: false,
@@ -399,7 +399,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   },
   {
     id: 'plot_8',
-    name: 'Forest Edge',
+    name: 'Rocky Plateau',
     size: 100, // 10x10 grid
     basePrice: 40000,
     isOwned: false,
@@ -407,7 +407,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   },
   {
     id: 'plot_9',
-    name: 'Farmland 1',
+    name: 'The Flats',
     size: 121, // 11x11 grid
     basePrice: 60000,
     isOwned: false,
@@ -415,7 +415,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   },
   {
     id: 'plot_10',
-    name: 'Farmland 2',
+    name: 'Old Quarry',
     size: 144, // 12x12 grid
     basePrice: 90000,
     isOwned: false,
@@ -423,7 +423,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   },
   {
     id: 'plot_11',
-    name: 'Farmland 3',
+    name: 'The Delta',
     size: 169, // 13x13 grid
     basePrice: 130000,
     isOwned: false,
@@ -431,7 +431,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   },
   {
     id: 'plot_12',
-    name: 'Farmland 4',
+    name: 'High Ridge',
     size: 196, // 14x14 grid
     basePrice: 180000,
     isOwned: false,
@@ -439,7 +439,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   },
   {
     id: 'plot_13',
-    name: 'Farmland 5',
+    name: 'South Marsh',
     size: 225, // 15x15 grid
     basePrice: 250000,
     isOwned: false,
@@ -447,7 +447,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   },
   {
     id: 'plot_14',
-    name: 'Farmland 6',
+    name: 'North Tundra',
     size: 256, // 16x16 grid
     basePrice: 350000,
     isOwned: false,
@@ -455,7 +455,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   },
   {
     id: 'plot_15',
-    name: 'Farmland 7',
+    name: 'The Mesa',
     size: 289, // 17x17 grid
     basePrice: 500000,
     isOwned: false,
@@ -463,7 +463,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   },
   {
     id: 'plot_16',
-    name: 'Farmland 8',
+    name: 'Hidden Spring',
     size: 324, // 18x18 grid
     basePrice: 750000,
     isOwned: false,
@@ -471,7 +471,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   },
   {
     id: 'plot_17',
-    name: 'Farmland 9',
+    name: 'The Summit',
     size: 361, // 19x19 grid
     basePrice: 1000000,
     isOwned: false,
@@ -479,7 +479,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   },
   {
     id: 'plot_18',
-    name: 'Farmland 10',
+    name: 'Grand Valley',
     size: 400, // 20x20 grid
     basePrice: 1500000,
     isOwned: false,
@@ -487,7 +487,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
   },
   {
     id: 'plot_19',
-    name: 'Farmland 11',
+    name: 'The Frontier',
     size: 441, // 21x21 grid
     basePrice: 2500000,
     isOwned: false,
