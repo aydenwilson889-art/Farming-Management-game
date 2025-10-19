@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { 
   INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS, Animal, ANIMALS, getAnimalProductById, 
   SEASONS, DAYS_PER_SEASON, TAX_RATE, INITIAL_GREENHOUSE_PLOT, GREENHOUSE_COST, Season, Fertilizer, getFertilizerById,
-  calculateMeatPriceMultiplier, BUTCHER_STAND_COST, MEAT_PRODUCT_IDS, getRestaurantById, Restaurant
+  calculateMeatPriceMultiplier, BUTCHER_STAND_COST, MEAT_PRODUCT_IDS, getRestaurantById, Restaurant, GameState
 } from '@/lib/game-data';
+import { RNG_EVENTS, RNGEvent } from '@/lib/rng-events';
 import { showSuccess, showError } from '@/utils/toast';
 
 const BULK_DISCOUNT = 0.05; // 5% discount
@@ -57,6 +58,40 @@ export const calculatePurchaseDetails = (item: Crop | Animal | Fertilizer, quant
     };
 };
 
+/**
+ * Checks for and applies a random event.
+ * @param state Current GameState
+ * @returns Updated GameState and a boolean indicating if an event occurred.
+ */
+const handleRandomEvent = (state: GameState): { newState: GameState, eventOccurred: boolean } => {
+    const availableEvents = RNG_EVENTS.filter(event => {
+        // Filter out negative cost events if the player cannot afford them (based on minCashRequired)
+        if (event.type === 'cost' && event.minCashRequired !== undefined) {
+            return state.cash >= event.minCashRequired;
+        }
+        return true;
+    });
+
+    for (const event of availableEvents) {
+        if (Math.random() < event.probability) {
+            const { newState, message } = event.applyEffect(state);
+            
+            // Use the appropriate toast based on event type
+            if (event.type === 'bonus') {
+                showSuccess(`${event.name}: ${message}`);
+            } else if (event.type === 'cost') {
+                showError(`${event.name}: ${message}`);
+            } else {
+                showSuccess(`${event.name}: ${message}`);
+            }
+            
+            return { newState, eventOccurred: true };
+        }
+    }
+
+    return { newState: state, eventOccurred: false };
+};
+
 
 export function useFarmGame() {
   const [gameState, setGameState] = useState(INITIAL_GAME_STATE);
@@ -94,22 +129,27 @@ export function useFarmGame() {
   useEffect(() => {
     const interval = setInterval(() => {
       setGameState(prev => {
-        const newDay = prev.day + 1;
+        let currentState = prev;
+        const newDay = currentState.day + 1;
         
+        // 0. Handle Random Events
+        const eventResult = handleRandomEvent(currentState);
+        currentState = eventResult.newState;
+
         // 1. Season Progression
         const dayInSeason = (newDay - 1) % DAYS_PER_SEASON;
         const currentSeasonIndex = Math.floor((newDay - 1) / DAYS_PER_SEASON) % SEASONS.length;
         const newSeason = SEASONS[currentSeasonIndex];
         
-        if (newSeason !== prev.currentSeason) {
+        if (newSeason !== currentState.currentSeason) {
             showSuccess(`It is now ${newSeason}!`);
         }
 
         // 2. Tax Collection (End of Season)
-        let newCash = prev.cash;
+        let newCash = currentState.cash;
         if (dayInSeason === DAYS_PER_SEASON - 1) { // Check if it's the last day of the season
-            const taxAmount = Math.floor(prev.cash * TAX_RATE);
-            newCash = prev.cash - taxAmount;
+            const taxAmount = Math.floor(currentState.cash * TAX_RATE);
+            newCash = currentState.cash - taxAmount;
             showError(`Taxes collected! Paid $${taxAmount.toLocaleString()} (10% of cash).`);
         }
         
@@ -161,12 +201,12 @@ export function useFarmGame() {
             };
         };
 
-        const newOwnedLand = prev.ownedLand.map(processPlotGrowth);
-        const newGreenhousePlot = prev.greenhousePlot ? processPlotGrowth(prev.greenhousePlot) : null;
+        const newOwnedLand = currentState.ownedLand.map(processPlotGrowth);
+        const newGreenhousePlot = currentState.greenhousePlot ? processPlotGrowth(currentState.greenhousePlot) : null;
         
         // 4. Advance Animal Production & Weight Management
-        let newInventory = { ...prev.inventory };
-        const newOwnedAnimals = prev.ownedAnimals.map(animal => {
+        let newInventory = { ...currentState.inventory };
+        const newOwnedAnimals = currentState.ownedAnimals.map(animal => {
           
           // Handle Meat Animal Weight Change
           if (animal.isMeatAnimal) {
@@ -209,7 +249,7 @@ export function useFarmGame() {
         });
 
         return {
-          ...prev,
+          ...currentState,
           day: newDay,
           currentSeason: newSeason,
           cash: newCash,
@@ -386,13 +426,28 @@ export function useFarmGame() {
         }
         // Strong (6 tiles, 3x2 or 2x3, prioritizing 3x2 horizontal spread)
         else if (fertilizer.coverage === 6) {
-            // Try to center 3x2 block on the tile, prioritizing top-left corner
-            const startRow = Math.max(0, Math.min(plotSize - 2, centerRow));
-            const startCol = Math.max(0, Math.min(plotSize - 3, centerCol));
+            // Determine if the plot is wide enough for 3 columns (e.g., 3x3, 4x4, 5x5 plots)
+            const isWideEnough = plotSize >= 3;
             
-            for (let r = startRow; r < startRow + 2; r++) {
-                for (let c = startCol; c < startCol + 3; c++) {
-                    affectedIndices.push(r * plotSize + c);
+            if (isWideEnough) {
+                // Prioritize 3x2 horizontal spread
+                const startRow = Math.max(0, Math.min(plotSize - 2, centerRow));
+                const startCol = Math.max(0, Math.min(plotSize - 3, centerCol));
+                
+                for (let r = startRow; r < startRow + 2; r++) {
+                    for (let c = startCol; c < startCol + 3; c++) {
+                        affectedIndices.push(r * plotSize + c);
+                    }
+                }
+            } else {
+                // Fallback for narrow plots (e.g., 3x2 greenhouse) - use 2x3 vertical spread if possible
+                const startRow = Math.max(0, Math.min(plotSize - 3, centerRow));
+                const startCol = Math.max(0, Math.min(plotSize - 2, centerCol));
+                
+                for (let r = startRow; r < startRow + 3; r++) {
+                    for (let c = startCol; c < startCol + 2; c++) {
+                        affectedIndices.push(r * plotSize + c);
+                    }
                 }
             }
         }
