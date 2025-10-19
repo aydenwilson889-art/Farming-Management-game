@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, getAnimalProductById, FERTILIZERS, Fertilizer, LandPlot, GREENHOUSE_COST } from '@/lib/game-data';
-import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf, Info, Droplet, LandPlot as LandPlotIcon, CheckCircle, Factory } from 'lucide-react';
+import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, getAnimalProductById, FERTILIZERS, Fertilizer, LandPlot, GREENHOUSE_COST, BUTCHER_STAND_COST } from '@/lib/game-data';
+import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf, Info, Droplet, LandPlot as LandPlotIcon, CheckCircle, Factory, Store } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import ItemDetailsDialog from './ItemDetailsDialog';
@@ -15,17 +15,19 @@ interface FarmShopProps {
   inventory: Record<string, number>;
   fertilizerInventory: Record<string, number>;
   ownedAnimals: Animal[];
-  availableLand: LandPlot[]; // New prop for construction
-  isGreenhouseOwned: boolean; // New prop for construction
+  availableLand: LandPlot[]; 
+  isGreenhouseOwned: boolean; 
+  hasButcherStand: boolean; // New prop
   selectedCropId: string | null;
   selectedFertilizerId: string | null;
   onSelectCrop: (cropId: string | null) => void;
   onSelectFertilizer: (fertId: string | null) => void;
   onOpenPurchaseModal: (item: Crop | Animal | Fertilizer) => void; 
-  onSellItem: (itemId: string, quantity: number) => void;
+  onSellItem: (itemId: string, quantity: number, useButcherStand: boolean) => void; // Updated signature
   onSellAnimal: (animalId: string, quantity: number) => void; 
-  onBuyLand: (plot: LandPlot) => void; // New prop for construction
-  onBuyGreenhouse: () => void; // New prop for construction
+  onBuyLand: (plot: LandPlot) => void; 
+  onBuyGreenhouse: () => void; 
+  onBuyButcherStand: () => void; // New handler
 }
 
 const FarmShop: React.FC<FarmShopProps> = ({ 
@@ -35,6 +37,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
   ownedAnimals, 
   availableLand,
   isGreenhouseOwned,
+  hasButcherStand,
   selectedCropId, 
   selectedFertilizerId, 
   onSelectCrop, 
@@ -44,6 +47,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
   onSellAnimal,
   onBuyLand,
   onBuyGreenhouse,
+  onBuyButcherStand,
 }) => {
   
   const [detailsItem, setDetailsItem] = useState<Crop | Animal | Fertilizer | null>(null);
@@ -57,7 +61,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
       return { id: itemId, name: crop.name, quantity, basePrice: crop.basePrice, type: 'crop' };
     }
     if (product) {
-      return { id: itemId, name: product.name, quantity, basePrice: product.basePrice, type: 'product' };
+      return { id: itemId, name: product.name, quantity, basePrice: product.basePrice, type: 'product', isMeat: product.id.endsWith('_meat') || product.id === 'pork_meat' };
     }
     return null;
   }).filter(item => item !== null);
@@ -71,10 +75,30 @@ const FarmShop: React.FC<FarmShopProps> = ({
   
   const unownedLand = availableLand.filter(p => !p.isOwned);
   const canAffordGreenhouse = cash >= GREENHOUSE_COST;
+  const canAffordButcherStand = cash >= BUTCHER_STAND_COST;
 
   const handleOpenDetails = (item: Crop | Animal | Fertilizer) => {
     setDetailsItem(item);
   };
+  
+  const handleSellMeat = (item: NonNullable<typeof inventoryItems[number]>, useButcherStand: boolean) => {
+    // Calculate value based on selling method
+    let value = item.quantity * item.basePrice;
+    let sellMethod = "Market";
+    
+    if (item.isMeat) {
+        if (useButcherStand) {
+            sellMethod = "Personal Stand";
+        } else {
+            // Butcher Shop tax: 50% reduction
+            value = Math.floor(value * 0.5);
+            sellMethod = "Butcher Shop (50% Tax)";
+        }
+    }
+    
+    onSellItem(item.id, item.quantity, useButcherStand);
+  };
+
 
   return (
     <>
@@ -88,7 +112,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="buy-seeds">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
+            <TabsList className="grid w-full grid-cols-5 h-auto">
               <TabsTrigger value="buy-seeds">Seeds</TabsTrigger>
               <TabsTrigger value="buy-animals">Animals</TabsTrigger>
               <TabsTrigger value="buy-fertilizer">Fertilizer</TabsTrigger>
@@ -96,7 +120,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
               <TabsTrigger value="sell-harvest">Sell</TabsTrigger>
             </TabsList>
             
-            {/* Buy Seeds Tab */}
+            {/* Buy Seeds Tab (Omitted for brevity) */}
             <TabsContent value="buy-seeds" className="mt-4 space-y-3">
               {CROPS.map((crop) => {
                 const canAfford = cash >= crop.seedCost;
@@ -149,7 +173,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
               })}
             </TabsContent>
 
-            {/* Buy Animals Tab */}
+            {/* Buy Animals Tab (Omitted for brevity) */}
             <TabsContent value="buy-animals" className="mt-4 space-y-3">
               {ANIMALS.map((animal) => {
                 const canAfford = cash >= animal.purchaseCost;
@@ -193,7 +217,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
               })}
             </TabsContent>
             
-            {/* Buy Fertilizer Tab */}
+            {/* Buy Fertilizer Tab (Omitted for brevity) */}
             <TabsContent value="buy-fertilizer" className="mt-4 space-y-3">
               {FERTILIZERS.map((fert) => {
                 const canAfford = cash >= fert.cost;
@@ -253,6 +277,37 @@ const FarmShop: React.FC<FarmShopProps> = ({
                 <h3 className="text-xl font-semibold border-b pb-1 flex items-center">
                     <Factory className="w-5 h-5 mr-2 text-green-600" /> Infrastructure
                 </h3>
+                
+                {/* Personal Butcher Stand Section */}
+                <div className="p-3 border rounded-lg bg-card shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <h4 className="font-semibold flex items-center">
+                                <Store className="w-4 h-4 mr-1 text-red-600" /> Personal Butcher Stand
+                            </h4>
+                            <p className="text-xs text-muted-foreground">Sell meat products without the 50% Butcher Shop tax.</p>
+                        </div>
+                        
+                        {hasButcherStand ? (
+                            <div className="flex items-center space-x-2 text-green-600 font-semibold">
+                                <CheckCircle className="w-5 h-5" />
+                                <span>Owned</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center space-x-2">
+                                <p className="text-sm font-medium mr-2">Cost: ${BUTCHER_STAND_COST.toLocaleString()}</p>
+                                <Button
+                                    onClick={onBuyButcherStand}
+                                    disabled={!canAffordButcherStand}
+                                    className="h-8 flex items-center space-x-1"
+                                >
+                                    <DollarSign className="w-4 h-4" />
+                                    <span>{canAffordButcherStand ? 'Purchase' : 'Cannot Afford'}</span>
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </div>
                 
                 {/* Greenhouse Section */}
                 <div className="p-3 border rounded-lg bg-card shadow-sm">
@@ -322,6 +377,18 @@ const FarmShop: React.FC<FarmShopProps> = ({
                 <h4 className="text-lg font-semibold flex items-center">
                   <Package className="w-5 h-5 mr-2" /> Harvest & Products
                 </h4>
+                
+                {/* Butcher Shop Status */}
+                <div className="flex justify-between items-center p-2 border-b mb-3 bg-muted/50 rounded-md">
+                    <span className="font-semibold flex items-center">
+                        <Store className="w-4 h-4 mr-2 text-red-600" />
+                        Meat Sales Method:
+                    </span>
+                    <Badge variant={hasButcherStand ? "default" : "destructive"} className="text-sm">
+                        {hasButcherStand ? "Personal Butcher Stand (No Tax)" : "Butcher Shop (50% Tax)"}
+                    </Badge>
+                </div>
+                
                 {inventoryItems.length === 0 ? (
                   <p className="text-center text-muted-foreground py-2">Inventory is empty. Harvest crops or collect products!</p>
                 ) : (
@@ -335,7 +402,9 @@ const FarmShop: React.FC<FarmShopProps> = ({
                     </div>
                     
                     {inventoryItems.map((item) => {
-                      const value = item.quantity * item.basePrice;
+                      const isMeat = item.type === 'product' && item.isMeat;
+                      const sellMethod = isMeat && !hasButcherStand ? 'Butcher Shop' : 'Market';
+                      const sellValue = isMeat && !hasButcherStand ? Math.floor(item.quantity * item.basePrice * 0.5) : item.quantity * item.basePrice;
 
                       return (
                         <div 
@@ -347,12 +416,12 @@ const FarmShop: React.FC<FarmShopProps> = ({
                             <div>
                               <h4 className="font-semibold">{item.name} ({item.quantity.toLocaleString()} units)</h4>
                               <p className="text-xs text-muted-foreground">
-                                Sell Price: ${item.basePrice} per unit. Total: ${value.toLocaleString()}
+                                Sell Price: ${item.basePrice} per unit. | Value: ${sellValue.toLocaleString()} ({sellMethod})
                               </p>
                             </div>
                           </div>
                           <Button
-                            onClick={() => onSellItem(item.id, item.quantity)}
+                            onClick={() => onSellItem(item.id, item.quantity, hasButcherStand)}
                             variant="destructive"
                             className="h-8 flex items-center space-x-1"
                           >
@@ -366,15 +435,18 @@ const FarmShop: React.FC<FarmShopProps> = ({
                 )}
               </div>
 
-              {/* Sub-section: Sell Animals */}
+              {/* Sub-section: Sell Animals (Now only for non-meat animals, which are currently only producers) */}
               <div className="space-y-3 border p-3 rounded-lg">
                 <h4 className="text-lg font-semibold flex items-center">
-                  <PawPrint className="w-5 h-5 mr-2" /> Livestock
+                  <PawPrint className="w-5 h-5 mr-2" /> Livestock (Direct Sale)
                 </h4>
-                {ownedAnimals.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-2">You don't own any animals to sell.</p>
+                <p className="text-sm text-muted-foreground">
+                    Only non-meat animals (Layer Hens, Milk Cows, Sheep, Bee Hives) can be sold directly. Meat animals must be butchered.
+                </p>
+                {ownedAnimals.filter(a => !a.isMeatAnimal).length === 0 ? (
+                  <p className="text-center text-muted-foreground py-2">No non-meat animals available for direct sale.</p>
                 ) : (
-                  ownedAnimals.map((animal) => {
+                  ownedAnimals.filter(a => !a.isMeatAnimal).map((animal) => {
                     // Use a reduced selling price, e.g., 75% of purchase cost
                     const sellPricePerUnit = Math.floor(animal.purchaseCost * 0.75);
                     const totalSellValue = animal.quantity * sellPricePerUnit;

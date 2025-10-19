@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import FarmPlots from './FarmPlots';
 import FarmShop from './FarmShop';
 import AnimalPen from './AnimalPen';
+import AnimalFeeding from './AnimalFeeding'; // New import
 import PurchaseModal from './PurchaseModal';
 import AdminPanel from './AdminPanel';
 import { useFarmGame, PurchaseDetails } from '@/hooks/use-farm-game';
@@ -21,11 +22,14 @@ const FarmManager: React.FC = () => {
     availableLand,
     executePurchase,
     handleSellAnimal,
+    handleButcherAnimal, // New handler
+    handleFeedAnimal, // New handler
     handleSellItem,
     handleTileAction,
     handleBuyLand,
     handleBuyGreenhouse,
-    handleApplyFertilizer, // New handler
+    handleBuyButcherStand, // New handler
+    handleApplyFertilizer,
     adjustCash,
     adjustDay,
     adjustSeason,
@@ -99,6 +103,9 @@ const FarmManager: React.FC = () => {
   if (gameState.greenhousePlot) {
       allOwnedPlots.push(gameState.greenhousePlot);
   }
+  
+  const meatAnimals = gameState.ownedAnimals.filter(a => a.isMeatAnimal);
+  const producerAnimals = gameState.ownedAnimals.filter(a => !a.isMeatAnimal);
 
   const SeasonIcon = getSeasonIcon(gameState.currentSeason);
 
@@ -173,8 +180,20 @@ const FarmManager: React.FC = () => {
             onApplyFertilizer={handleApplyFertilizer} // Pass fertilizer handler
           />
           
-          <h2 className="text-2xl font-bold border-b pb-2">Livestock</h2>
-          <AnimalPen ownedAnimals={gameState.ownedAnimals} />
+          <h2 className="text-2xl font-bold border-b pb-2">Livestock Management</h2>
+          
+          {/* Meat Animal Feeding/Butchering */}
+          {meatAnimals.length > 0 && (
+            <AnimalFeeding 
+                meatAnimals={meatAnimals}
+                cash={gameState.cash}
+                onFeedAnimal={handleFeedAnimal}
+                onButcherAnimal={handleButcherAnimal}
+            />
+          )}
+          
+          {/* Product Animal Production */}
+          <AnimalPen ownedAnimals={producerAnimals} />
         </div>
         
         {/* Column 2: Shop and Construction */}
@@ -183,16 +202,18 @@ const FarmManager: React.FC = () => {
           <FarmShop 
             cash={gameState.cash}
             inventory={gameState.inventory}
-            fertilizerInventory={gameState.fertilizerInventory} // Pass fertilizer inventory
+            fertilizerInventory={gameState.fertilizerInventory} 
             ownedAnimals={gameState.ownedAnimals}
-            availableLand={availableLand} // Pass construction props
-            isGreenhouseOwned={!!gameState.greenhousePlot} // Pass construction props
-            onBuyLand={handleBuyLand} // Pass construction props
-            onBuyGreenhouse={handleBuyGreenhouse} // Pass construction props
+            availableLand={availableLand} 
+            isGreenhouseOwned={!!gameState.greenhousePlot} 
+            hasButcherStand={gameState.hasButcherStand} // Pass new state
+            onBuyLand={handleBuyLand} 
+            onBuyGreenhouse={handleBuyGreenhouse} 
+            onBuyButcherStand={handleBuyButcherStand} // Pass new handler
             selectedCropId={selectedCropId}
             selectedFertilizerId={selectedFertilizerId}
-            onSelectCrop={handleSelectCrop} // Use new handler
-            onSelectFertilizer={handleSelectFertilizer} // New handler for selecting fertilizer
+            onSelectCrop={handleSelectCrop} 
+            onSelectFertilizer={handleSelectFertilizer} 
             onOpenPurchaseModal={handleOpenPurchaseModal}
             onSellItem={handleSellItem}
             onSellAnimal={handleSellAnimal}

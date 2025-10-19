@@ -1,4 +1,4 @@
-import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet } from 'lucide-react';
+import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet, Beef, Drumstick, Factory } from 'lucide-react';
 
 // --- Types ---
 
@@ -48,6 +48,15 @@ export interface Animal {
   product: AnimalProduct;
   quantity: number; // How many units of this animal are owned
   daysUntilProduction: number; // Counter for production
+  
+  // Meat Animal Properties (if isMeatAnimal is true)
+  isMeatAnimal: boolean;
+  weight: number; // Current weight (kg)
+  minWeight: number; // Minimum weight for butchering
+  maxWeight: number; // Maximum weight before quality drops significantly
+  optimalWeight: number; // Target weight for best price
+  feedCost: number; // Cost to feed one unit of this animal
+  isFed: boolean; // Tracks if the animal was fed today
 }
 
 export interface Fertilizer {
@@ -68,6 +77,7 @@ export interface GameState {
   fertilizerInventory: Record<string, number>; // FertilizerId -> Quantity
   ownedLand: LandPlot[];
   ownedAnimals: Animal[];
+  hasButcherStand: boolean; // New property for Personal Butcher Stand
 }
 
 // --- Constants ---
@@ -78,6 +88,7 @@ export const TAX_RATE = 0.10; // 10% tax
 export const TAX_DAY_INTERVAL = DAYS_PER_SEASON; // Tax collected at the end of every season (Day 7, 14, 21, etc.)
 export const GREENHOUSE_COST = 5000;
 export const GREENHOUSE_SIZE = 6; // 3x2 grid
+export const BUTCHER_STAND_COST = 10000; // Cost for the Personal Butcher Stand
 
 export const FERTILIZERS: Fertilizer[] = [
   {
@@ -107,93 +118,125 @@ export const FERTILIZERS: Fertilizer[] = [
 ];
 
 export const ANIMAL_PRODUCTS: AnimalProduct[] = [
-// ... (existing products)
   { id: 'egg', name: 'Egg', icon: Egg, basePrice: 4 },
   { id: 'milk', name: 'Milk', icon: Milk, basePrice: 8 },
-  { id: 'pork', name: 'Pork', icon: PiggyBank, basePrice: 12 },
+  { id: 'pork_meat', name: 'Pork Meat', icon: PiggyBank, basePrice: 12 },
   { id: 'wool', name: 'Wool', icon: Feather, basePrice: 15 },
-  { id: 'fish', name: 'Fish', icon: Fish, basePrice: 10 },
-  { id: 'rabbit_fur', name: 'Rabbit Fur', icon: Rabbit, basePrice: 7 },
+  { id: 'fish_meat', name: 'Fish Meat', icon: Fish, basePrice: 10 },
+  { id: 'beef_meat', name: 'Beef Meat', icon: Beef, basePrice: 18 },
+  { id: 'chicken_meat', name: 'Chicken Meat', icon: Drumstick, basePrice: 6 },
   { id: 'honey', name: 'Honey', icon: Bird, basePrice: 6 },
 ];
 
 export const ANIMALS: Animal[] = [
-// ... (existing animals)
+  // Layer Hen (Egg Producer)
   {
-    id: 'chicken',
-    name: 'Chicken',
+    id: 'layer_hen',
+    name: 'Layer Hen',
     icon: Egg,
     purchaseCost: 50,
     productionTime: 2, // Produces every 2 days
     product: ANIMAL_PRODUCTS.find(p => p.id === 'egg')!,
     quantity: 0,
     daysUntilProduction: 2,
+    isMeatAnimal: false,
+    weight: 0, minWeight: 0, maxWeight: 0, optimalWeight: 0, feedCost: 0, isFed: false,
   },
+  // Meat Chicken (Meat Producer)
   {
-    id: 'cow',
-    name: 'Cow',
+    id: 'meat_chicken',
+    name: 'Meat Chicken',
+    icon: Drumstick,
+    purchaseCost: 70,
+    productionTime: 5, // Ready to butcher every 5 days
+    product: ANIMAL_PRODUCTS.find(p => p.id === 'chicken_meat')!,
+    quantity: 0,
+    daysUntilProduction: 5,
+    isMeatAnimal: true,
+    weight: 1.0, minWeight: 0.5, maxWeight: 3.0, optimalWeight: 1.5, feedCost: 5, isFed: false,
+  },
+  // Milk Cow (Milk Producer)
+  {
+    id: 'milk_cow',
+    name: 'Milk Cow',
     icon: Milk,
     purchaseCost: 200,
     productionTime: 3, // Produces every 3 days
     product: ANIMAL_PRODUCTS.find(p => p.id === 'milk')!,
     quantity: 0,
     daysUntilProduction: 3,
+    isMeatAnimal: false,
+    weight: 0, minWeight: 0, maxWeight: 0, optimalWeight: 0, feedCost: 0, isFed: false,
   },
+  // Beef Cow (Meat Producer)
+  {
+    id: 'beef_cow',
+    name: 'Beef Cow',
+    icon: Beef,
+    purchaseCost: 350,
+    productionTime: 10, // Ready to butcher every 10 days
+    product: ANIMAL_PRODUCTS.find(p => p.id === 'beef_meat')!,
+    quantity: 0,
+    daysUntilProduction: 10,
+    isMeatAnimal: true,
+    weight: 500, minWeight: 400, maxWeight: 800, optimalWeight: 600, feedCost: 50, isFed: false,
+  },
+  // Pig (Meat Producer)
   {
     id: 'pig',
     name: 'Pig',
     icon: PiggyBank,
     purchaseCost: 150,
-    productionTime: 4,
-    product: ANIMAL_PRODUCTS.find(p => p.id === 'pork')!,
+    productionTime: 4, // Ready to butcher every 4 days
+    product: ANIMAL_PRODUCTS.find(p => p.id === 'pork_meat')!,
     quantity: 0,
     daysUntilProduction: 4,
+    isMeatAnimal: true,
+    weight: 50, minWeight: 40, maxWeight: 100, optimalWeight: 70, feedCost: 15, isFed: false,
   },
+  // Sheep (Wool Producer)
   {
     id: 'sheep',
     name: 'Sheep',
-    icon: Feather, // Using Feather instead of Sheep
+    icon: Feather, 
     purchaseCost: 100,
     productionTime: 5,
     product: ANIMAL_PRODUCTS.find(p => p.id === 'wool')!,
     quantity: 0,
     daysUntilProduction: 5,
+    isMeatAnimal: false,
+    weight: 0, minWeight: 0, maxWeight: 0, optimalWeight: 0, feedCost: 0, isFed: false,
   },
+  // Fish Farm (Meat Producer)
   {
     id: 'fish_farm',
     name: 'Fish Farm',
     icon: Fish,
     purchaseCost: 500,
-    productionTime: 7,
-    product: ANIMAL_PRODUCTS.find(p => p.id === 'fish')!,
+    productionTime: 7, // Ready to butcher every 7 days
+    product: ANIMAL_PRODUCTS.find(p => p.id === 'fish_meat')!,
     quantity: 0,
     daysUntilProduction: 7,
+    isMeatAnimal: true,
+    weight: 5, minWeight: 3, maxWeight: 10, optimalWeight: 6, feedCost: 20, isFed: false,
   },
-  {
-    id: 'rabbit',
-    name: 'Rabbit',
-    icon: Rabbit,
-    purchaseCost: 75,
-    productionTime: 3,
-    product: ANIMAL_PRODUCTS.find(p => p.id === 'rabbit_fur')!,
-    quantity: 0,
-    daysUntilProduction: 3,
-  },
+  // Bee Hive (Honey Producer)
   {
     id: 'bee_hive',
     name: 'Bee Hive',
-    icon: Bird, // Using Bird as a placeholder for Bee/Honey
+    icon: Bird, 
     purchaseCost: 120,
     productionTime: 6,
     product: ANIMAL_PRODUCTS.find(p => p.id === 'honey')!,
     quantity: 0,
     daysUntilProduction: 6,
+    isMeatAnimal: false,
+    weight: 0, minWeight: 0, maxWeight: 0, optimalWeight: 0, feedCost: 0, isFed: false,
   },
 ];
 
 
 export const CROPS: Crop[] = [
-// ... (existing crops)
   {
     id: 'wheat',
     name: 'Wheat',
@@ -319,6 +362,7 @@ export const INITIAL_GAME_STATE: GameState = {
   fertilizerInventory: {}, // New inventory for fertilizer
   ownedLand: INITIAL_LAND_PLOTS.filter(p => p.isOwned),
   ownedAnimals: [],
+  hasButcherStand: false, // Initialize new property
 };
 
 // --- Utility Functions ---
@@ -333,4 +377,38 @@ export const getAnimalProductById = (id: string): AnimalProduct | undefined => {
 
 export const getFertilizerById = (id: string): Fertilizer | undefined => {
   return FERTILIZERS.find(f => f.id === id);
+};
+
+/**
+ * Calculates the price multiplier for meat based on weight deviation from optimal.
+ * 1.0 multiplier at optimal weight.
+ * Decreases linearly to 0.5 at min/max weight.
+ * @param weight Current weight
+ * @param optimalWeight Target weight
+ * @param minWeight Minimum acceptable weight
+ * @param maxWeight Maximum acceptable weight
+ * @returns Price multiplier (0.5 to 1.0)
+ */
+export const calculateMeatPriceMultiplier = (weight: number, optimalWeight: number, minWeight: number, maxWeight: number): number => {
+    if (weight === optimalWeight) return 1.0;
+
+    let deviation: number;
+    let maxDeviation: number;
+
+    if (weight < optimalWeight) {
+        deviation = optimalWeight - weight;
+        maxDeviation = optimalWeight - minWeight;
+    } else { // weight > optimalWeight
+        deviation = weight - optimalWeight;
+        maxDeviation = maxWeight - optimalWeight;
+    }
+    
+    // If maxDeviation is zero (shouldn't happen with current data, but safety check)
+    if (maxDeviation <= 0) return 1.0;
+
+    // Calculate how far the deviation is from the maximum possible deviation (0 to 1)
+    const normalizedDeviation = Math.min(1, deviation / maxDeviation);
+
+    // Multiplier ranges from 1.0 (at 0 deviation) down to 0.5 (at max deviation)
+    return 1.0 - (normalizedDeviation * 0.5);
 };

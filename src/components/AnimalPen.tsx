@@ -11,20 +11,22 @@ interface AnimalPenProps {
 }
 
 const AnimalPen: React.FC<AnimalPenProps> = ({ ownedAnimals }) => {
+  const producerAnimals = ownedAnimals.filter(a => !a.isMeatAnimal);
+  
   return (
     <Card className="w-full shadow-lg">
       <CardHeader>
         <CardTitle className="text-2xl flex items-center">
           <Package className="w-6 h-6 mr-2" />
-          Animal Pen
+          Product Livestock (Eggs, Milk, Wool, Honey)
         </CardTitle>
         <CardDescription>Manage your livestock and track their production cycles.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {ownedAnimals.length === 0 ? (
-          <p className="text-center text-muted-foreground py-4">You don't own any animals yet. Visit the Marketplace!</p>
+        {producerAnimals.length === 0 ? (
+          <p className="text-center text-muted-foreground py-4">You don't own any product animals yet. Visit the Marketplace!</p>
         ) : (
-          ownedAnimals.map((animal) => {
+          producerAnimals.map((animal) => {
             const isReady = animal.daysUntilProduction === 1;
             
             return (
