@@ -57,7 +57,7 @@ const AnimalFeeding: React.FC<AnimalFeedingProps> = ({ meatAnimals, cash, onFeed
           <Utensils className="w-6 h-6 mr-2 text-amber-700" />
           Meat Animal Management
         </CardTitle>
-        <CardDescription>Feed your livestock daily to maintain optimal weight for butchering.</CardDescription>
+        <CardDescription>Feed your livestock daily to maintain optimal weight for processing into meat products.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {meatAnimals.length === 0 ? (
@@ -100,15 +100,16 @@ const AnimalFeeding: React.FC<AnimalFeedingProps> = ({ meatAnimals, cash, onFeed
                     </Button>
                   </div>
 
-                  {/* Butchering Action */}
+                  {/* Butchering/Processing Action */}
                   <Button
                     onClick={() => onButcherAnimal(animal.id)}
                     disabled={!isReadyToButcher}
                     variant="destructive"
                     className="h-8 text-xs mt-2 sm:mt-0"
+                    title={isReadyToButcher ? `Convert ${animal.quantity} ${animal.name}(s) into meat inventory.` : `Ready in ${animal.daysUntilProduction - 1} days.`}
                   >
                     <ArrowRight className="w-3 h-3 mr-1" />
-                    {isReadyToButcher ? 'Butcher' : `${animal.daysUntilProduction - 1} Days Left`}
+                    {isReadyToButcher ? 'Process Livestock' : `${animal.daysUntilProduction - 1} Days Left`}
                   </Button>
                 </div>
               </div>
