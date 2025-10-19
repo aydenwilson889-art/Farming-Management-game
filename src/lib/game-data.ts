@@ -327,6 +327,18 @@ export const CROPS: Crop[] = [
   },
 ];
 
+// --- Utility Functions for Data Generation ---
+
+const createTiles = (size: number, prefix: string): PlotTile[] => {
+    return Array.from({ length: size }, (_, i) => ({
+        id: `${prefix}-${i}`,
+        cropId: null,
+        growthStage: 0,
+        isReadyToHarvest: false,
+        fertilizerId: null,
+    }));
+};
+
 export const INITIAL_LAND_PLOTS: LandPlot[] = [
   {
     id: 'grandpas_field',
@@ -334,13 +346,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 9, // 3x3 grid for simplicity
     basePrice: 0, // Inherited
     isOwned: true,
-    tiles: Array.from({ length: 9 }, (_, i) => ({
-      id: `tile-${i}`,
-      cropId: null,
-      growthStage: 0,
-      isReadyToHarvest: false,
-      fertilizerId: null, // Initialize new property
-    })),
+    tiles: createTiles(9, 'tile'),
   },
   {
     id: 'north_acre',
@@ -348,13 +354,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 16, // 4x4 grid
     basePrice: 500,
     isOwned: false,
-    tiles: Array.from({ length: 16 }, (_, i) => ({
-      id: `tile-n-${i}`,
-      cropId: null,
-      growthStage: 0,
-      isReadyToHarvest: false,
-      fertilizerId: null, // Initialize new property
-    })),
+    tiles: createTiles(16, 'tile-n'),
   },
   {
     id: 'south_pasture',
@@ -362,13 +362,7 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 25, // 5x5 grid
     basePrice: 1500,
     isOwned: false,
-    tiles: Array.from({ length: 25 }, (_, i) => ({
-      id: `tile-s-${i}`,
-      cropId: null,
-      growthStage: 0,
-      isReadyToHarvest: false,
-      fertilizerId: null, // Initialize new property
-    })),
+    tiles: createTiles(25, 'tile-s'),
   },
   {
     id: 'east_valley',
@@ -376,13 +370,128 @@ export const INITIAL_LAND_PLOTS: LandPlot[] = [
     size: 36, // 6x6 grid
     basePrice: 4000,
     isOwned: false,
-    tiles: Array.from({ length: 36 }, (_, i) => ({
-      id: `tile-e-${i}`,
-      cropId: null,
-      growthStage: 0,
-      isReadyToHarvest: false,
-      fertilizerId: null, // Initialize new property
-    })),
+    tiles: createTiles(36, 'tile-e'),
+  },
+  // 15 new plots start here
+  {
+    id: 'plot_5',
+    name: 'West Field',
+    size: 49, // 7x7 grid
+    basePrice: 8000,
+    isOwned: false,
+    tiles: createTiles(49, 'tile-p5'),
+  },
+  {
+    id: 'plot_6',
+    name: 'River Bend',
+    size: 64, // 8x8 grid
+    basePrice: 15000,
+    isOwned: false,
+    tiles: createTiles(64, 'tile-p6'),
+  },
+  {
+    id: 'plot_7',
+    name: 'Hillside',
+    size: 81, // 9x9 grid
+    basePrice: 25000,
+    isOwned: false,
+    tiles: createTiles(81, 'tile-p7'),
+  },
+  {
+    id: 'plot_8',
+    name: 'Forest Edge',
+    size: 100, // 10x10 grid
+    basePrice: 40000,
+    isOwned: false,
+    tiles: createTiles(100, 'tile-p8'),
+  },
+  {
+    id: 'plot_9',
+    name: 'Farmland 1',
+    size: 121, // 11x11 grid
+    basePrice: 60000,
+    isOwned: false,
+    tiles: createTiles(121, 'tile-p9'),
+  },
+  {
+    id: 'plot_10',
+    name: 'Farmland 2',
+    size: 144, // 12x12 grid
+    basePrice: 90000,
+    isOwned: false,
+    tiles: createTiles(144, 'tile-p10'),
+  },
+  {
+    id: 'plot_11',
+    name: 'Farmland 3',
+    size: 169, // 13x13 grid
+    basePrice: 130000,
+    isOwned: false,
+    tiles: createTiles(169, 'tile-p11'),
+  },
+  {
+    id: 'plot_12',
+    name: 'Farmland 4',
+    size: 196, // 14x14 grid
+    basePrice: 180000,
+    isOwned: false,
+    tiles: createTiles(196, 'tile-p12'),
+  },
+  {
+    id: 'plot_13',
+    name: 'Farmland 5',
+    size: 225, // 15x15 grid
+    basePrice: 250000,
+    isOwned: false,
+    tiles: createTiles(225, 'tile-p13'),
+  },
+  {
+    id: 'plot_14',
+    name: 'Farmland 6',
+    size: 256, // 16x16 grid
+    basePrice: 350000,
+    isOwned: false,
+    tiles: createTiles(256, 'tile-p14'),
+  },
+  {
+    id: 'plot_15',
+    name: 'Farmland 7',
+    size: 289, // 17x17 grid
+    basePrice: 500000,
+    isOwned: false,
+    tiles: createTiles(289, 'tile-p15'),
+  },
+  {
+    id: 'plot_16',
+    name: 'Farmland 8',
+    size: 324, // 18x18 grid
+    basePrice: 750000,
+    isOwned: false,
+    tiles: createTiles(324, 'tile-p16'),
+  },
+  {
+    id: 'plot_17',
+    name: 'Farmland 9',
+    size: 361, // 19x19 grid
+    basePrice: 1000000,
+    isOwned: false,
+    tiles: createTiles(361, 'tile-p17'),
+  },
+  {
+    id: 'plot_18',
+    name: 'Farmland 10',
+    size: 400, // 20x20 grid
+    basePrice: 1500000,
+    isOwned: false,
+    tiles: createTiles(400, 'tile-p18'),
+  },
+  {
+    id: 'plot_19',
+    name: 'Farmland 11',
+    size: 441, // 21x21 grid
+    basePrice: 2500000,
+    isOwned: false,
+    tiles: createTiles(441, 'tile-p19'),
   },
 ];
 
@@ -392,13 +501,7 @@ export const INITIAL_GREENHOUSE_PLOT: LandPlot = {
     size: GREENHOUSE_SIZE, // 3x2 grid
     basePrice: GREENHOUSE_COST,
     isOwned: false,
-    tiles: Array.from({ length: GREENHOUSE_SIZE }, (_, i) => ({
-      id: `gh-tile-${i}`,
-      cropId: null,
-      growthStage: 0,
-      isReadyToHarvest: false,
-      fertilizerId: null, // Initialize new property
-    })),
+    tiles: createTiles(GREENHOUSE_SIZE, 'gh-tile'),
 };
 
 export const INITIAL_GAME_STATE: GameState = {
