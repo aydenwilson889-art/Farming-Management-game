@@ -170,99 +170,91 @@ const FarmManager: React.FC = () => {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Column 1: Map and Livestock */}
-        <div className="lg:col-span-2 space-y-8">
-          <FarmPlots 
-            plots={allOwnedPlots} 
-            selectedCropId={selectedCropId}
-            selectedFertilizerId={selectedFertilizerId}
-            currentSeason={gameState.currentSeason}
-            onTileAction={(plotId, tileId, action) => handleTileAction(plotId, tileId, action, selectedCropId)}
-            onApplyFertilizer={handleApplyFertilizer}
-          />
-          
-          {/* Livestock Management Tabs */}
-          <Card className="w-full shadow-lg">
-            <CardHeader>
-                <CardTitle className="text-2xl flex items-center">
-                    <PawPrint className="w-6 h-6 mr-2" />
-                    Livestock Management
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-                <Tabs defaultValue="production">
-                    <TabsList className="grid w-full grid-cols-3 h-auto">
-                        <TabsTrigger value="production" className="flex items-center space-x-1">
-                            <Egg className="w-4 h-4" />
-                            <span>Product Production</span>
-                        </TabsTrigger>
-                        <TabsTrigger value="meat" className="flex items-center space-x-1">
-                            <Drumstick className="w-4 h-4" />
-                            <span>Meat Management</span>
-                        </TabsTrigger>
-                        <TabsTrigger value="sales" className="flex items-center space-x-1" disabled={!gameState.hasButcherStand}>
-                            <Store className="w-4 h-4" />
-                            <span>Meat Sales</span>
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="production" className="p-4 pt-4">
-                        <AnimalPen ownedAnimals={producerAnimals} />
-                    </TabsContent>
-
-                    <TabsContent value="meat" className="p-4 pt-4">
-                        <AnimalFeeding 
-                            meatAnimals={meatAnimals}
-                            cash={gameState.cash}
-                            onFeedAnimal={handleFeedAnimal}
-                            onButcherAnimal={handleButcherAnimal}
-                        />
-                    </TabsContent>
-
-                    <TabsContent value="sales" className="p-4 pt-4">
-                        {gameState.hasButcherStand ? (
-                            <MeatSales
-                                freezerInventory={gameState.freezerInventory}
-                                onSellMeatToRestaurant={handleSellMeatToRestaurant}
-                            />
-                        ) : (
-                            <p className="text-center text-muted-foreground py-4">Purchase the Personal Butcher Stand in the Marketplace (Construction tab) to unlock meat sales.</p>
-                        )}
-                    </TabsContent>
-                </Tabs>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Column 2: Shop and Construction */}
-        <div className="lg:col-span-1 space-y-8">
-          
-          <FarmShop 
-            cash={gameState.cash}
-            inventory={gameState.inventory}
-            freezerInventory={gameState.freezerInventory}
-            fertilizerInventory={gameState.fertilizerInventory} 
-            ownedAnimals={gameState.ownedAnimals}
-            availableLand={availableLand} 
-            isGreenhouseOwned={!!gameState.greenhousePlot} 
-            hasButcherStand={gameState.hasButcherStand}
-            onBuyLand={handleBuyLand} 
-            onBuyGreenhouse={handleBuyGreenhouse} 
-            onBuyButcherStand={handleBuyButcherStand}
-            selectedCropId={selectedCropId}
-            selectedFertilizerId={selectedFertilizerId}
-            onSelectCrop={handleSelectCrop} 
-            onSelectFertilizer={handleSelectFertilizer} 
-            onOpenPurchaseModal={handleOpenPurchaseModal}
-            onSellItem={handleSellItem}
-            onSellAnimal={handleSellAnimal}
-          />
-        </div>
-      </div>
+      {/* 1. Farm Plots */}
+      <FarmPlots 
+        plots={allOwnedPlots} 
+        selectedCropId={selectedCropId}
+        selectedFertilizerId={selectedFertilizerId}
+        currentSeason={gameState.currentSeason}
+        onTileAction={(plotId, tileId, action) => handleTileAction(plotId, tileId, action, selectedCropId)}
+        onApplyFertilizer={handleApplyFertilizer}
+      />
       
-      {/* Collapsible Admin Panel (Moved to the bottom of the main container) */}
+      {/* 2. Livestock Management Tabs Card */}
+      <Card className="w-full shadow-lg">
+        <CardHeader>
+            <CardTitle className="text-2xl flex items-center">
+                <PawPrint className="w-6 h-6 mr-2" />
+                Livestock Management
+            </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+            <Tabs defaultValue="production">
+                <TabsList className="grid w-full grid-cols-3 h-auto">
+                    <TabsTrigger value="production" className="flex items-center space-x-1">
+                        <Egg className="w-4 h-4" />
+                        <span>Product Production</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="meat" className="flex items-center space-x-1">
+                        <Drumstick className="w-4 h-4" />
+                        <span>Meat Management</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="sales" className="flex items-center space-x-1" disabled={!gameState.hasButcherStand}>
+                        <Store className="w-4 h-4" />
+                        <span>Meat Sales</span>
+                    </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="production" className="p-4 pt-4">
+                    <AnimalPen ownedAnimals={producerAnimals} />
+                </TabsContent>
+
+                <TabsContent value="meat" className="p-4 pt-4">
+                    <AnimalFeeding 
+                        meatAnimals={meatAnimals}
+                        cash={gameState.cash}
+                        onFeedAnimal={handleFeedAnimal}
+                        onButcherAnimal={handleButcherAnimal}
+                    />
+                </TabsContent>
+
+                <TabsContent value="sales" className="p-4 pt-4">
+                    {gameState.hasButcherStand ? (
+                        <MeatSales
+                            freezerInventory={gameState.freezerInventory}
+                            onSellMeatToRestaurant={handleSellMeatToRestaurant}
+                        />
+                    ) : (
+                        <p className="text-center text-muted-foreground py-4">Purchase the Personal Butcher Stand in the Marketplace (Construction tab) to unlock meat sales.</p>
+                    )}
+                </TabsContent>
+            </Tabs>
+        </CardContent>
+      </Card>
+      
+      {/* 3. Farm Shop (Marketplace) */}
+      <FarmShop 
+        cash={gameState.cash}
+        inventory={gameState.inventory}
+        freezerInventory={gameState.freezerInventory}
+        fertilizerInventory={gameState.fertilizerInventory} 
+        ownedAnimals={gameState.ownedAnimals}
+        availableLand={availableLand} 
+        isGreenhouseOwned={!!gameState.greenhousePlot} 
+        hasButcherStand={gameState.hasButcherStand}
+        onBuyLand={handleBuyLand} 
+        onBuyGreenhouse={handleBuyGreenhouse} 
+        onBuyButcherStand={handleBuyButcherStand}
+        selectedCropId={selectedCropId}
+        selectedFertilizerId={selectedFertilizerId}
+        onSelectCrop={handleSelectCrop} 
+        onSelectFertilizer={handleSelectFertilizer} 
+        onOpenPurchaseModal={handleOpenPurchaseModal}
+        onSellItem={handleSellItem}
+        onSellAnimal={handleSellAnimal}
+      />
+      
+      {/* 4. Collapsible Admin Panel */}
       <Collapsible open={isAdminOpen} onOpenChange={setIsAdminOpen} className="w-full">
         <div className="flex items-center justify-between space-x-4 px-4 py-2 border rounded-md bg-destructive/10">
           <h4 className="text-lg font-semibold text-destructive">
