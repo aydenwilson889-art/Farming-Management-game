@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Zap, Leaf, Package, DollarSign } from 'lucide-react';
 import { ALL_AT_ONCE_FEE, getCropById } from '@/lib/game-data';
 import { showError } from '@/utils/toast';
+import { Badge } from '@/components/ui/badge';
 
 interface MassActionPanelProps {
   cash: number;
