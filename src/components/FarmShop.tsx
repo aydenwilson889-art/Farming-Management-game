@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, getAnimalProductById, FERTILIZERS, Fertilizer } from '@/lib/game-data';
-import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf, Info, Droplet } from 'lucide-react';
+import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, getAnimalProductById, FERTILIZERS, Fertilizer, LandPlot, GREENHOUSE_COST } from '@/lib/game-data';
+import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf, Info, Droplet, LandPlot as LandPlotIcon, CheckCircle, Factory } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import ItemDetailsDialog from './ItemDetailsDialog';
@@ -15,6 +15,8 @@ interface FarmShopProps {
   inventory: Record<string, number>;
   fertilizerInventory: Record<string, number>;
   ownedAnimals: Animal[];
+  availableLand: LandPlot[]; // New prop for construction
+  isGreenhouseOwned: boolean; // New prop for construction
   selectedCropId: string | null;
   selectedFertilizerId: string | null;
   onSelectCrop: (cropId: string | null) => void;
@@ -22,9 +24,27 @@ interface FarmShopProps {
   onOpenPurchaseModal: (item: Crop | Animal | Fertilizer) => void; 
   onSellItem: (itemId: string, quantity: number) => void;
   onSellAnimal: (animalId: string, quantity: number) => void; 
+  onBuyLand: (plot: LandPlot) => void; // New prop for construction
+  onBuyGreenhouse: () => void; // New prop for construction
 }
 
-const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, fertilizerInventory, ownedAnimals, selectedCropId, selectedFertilizerId, onSelectCrop, onSelectFertilizer, onOpenPurchaseModal, onSellItem, onSellAnimal }) => {
+const FarmShop: React.FC<FarmShopProps> = ({ 
+  cash, 
+  inventory, 
+  fertilizerInventory, 
+  ownedAnimals, 
+  availableLand,
+  isGreenhouseOwned,
+  selectedCropId, 
+  selectedFertilizerId, 
+  onSelectCrop, 
+  onSelectFertilizer, 
+  onOpenPurchaseModal, 
+  onSellItem, 
+  onSellAnimal,
+  onBuyLand,
+  onBuyGreenhouse,
+}) => {
   
   const [detailsItem, setDetailsItem] = useState<Crop | Animal | Fertilizer | null>(null);
 
@@ -48,8 +68,9 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, fertilizerInventor
     }
     return total;
   }, 0);
-
-  const totalOwnedAnimals = ownedAnimals.reduce((sum, a) => sum + a.quantity, 0);
+  
+  const unownedLand = availableLand.filter(p => !p.isOwned);
+  const canAffordGreenhouse = cash >= GREENHOUSE_COST;
 
   const handleOpenDetails = (item: Crop | Animal | Fertilizer) => {
     setDetailsItem(item);
@@ -71,6 +92,7 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, fertilizerInventor
               <TabsTrigger value="buy-seeds">Seeds</TabsTrigger>
               <TabsTrigger value="buy-animals">Animals</TabsTrigger>
               <TabsTrigger value="buy-fertilizer">Fertilizer</TabsTrigger>
+              <TabsTrigger value="construction">Construction</TabsTrigger>
               <TabsTrigger value="sell-harvest">Sell</TabsTrigger>
             </TabsList>
             
@@ -224,6 +246,72 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, fertilizerInventor
                   </div>
                 );
               })}
+            </TabsContent>
+            
+            {/* Construction Tab */}
+            <TabsContent value="construction" className="mt-4 space-y-6">
+                <h3 className="text-xl font-semibold border-b pb-1 flex items-center">
+                    <Factory className="w-5 h-5 mr-2 text-green-600" /> Infrastructure
+                </h3>
+                
+                {/* Greenhouse Section */}
+                <div className="p-3 border rounded-lg bg-card shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <h4 className="font-semibold flex items-center">
+                                <Leaf className="w-4 h-4 mr-1 text-green-600" /> Greenhouse
+                            </h4>
+                            <p className="text-xs text-muted-foreground">Allows planting year-round (6 tiles).</p>
+                        </div>
+                        
+                        {isGreenhouseOwned ? (
+                            <div className="flex items-center space-x-2 text-green-600 font-semibold">
+                                <CheckCircle className="w-5 h-5" />
+                                <span>Operational</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center space-x-2">
+                                <p className="text-sm font-medium mr-2">Cost: ${GREENHOUSE_COST.toLocaleString()}</p>
+                                <Button
+                                    onClick={onBuyGreenhouse}
+                                    disabled={!canAffordGreenhouse}
+                                    className="h-8 flex items-center space-x-1"
+                                >
+                                    <DollarSign className="w-4 h-4" />
+                                    <span>{canAffordGreenhouse ? 'Purchase' : 'Cannot Afford'}</span>
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Land Acquisition Section */}
+                <h3 className="text-xl font-semibold border-b pb-1 flex items-center">
+                    <LandPlotIcon className="w-5 h-5 mr-2 text-amber-700" /> Land Acquisition
+                </h3>
+                {unownedLand.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-4">All available land plots have been purchased!</p>
+                ) : (
+                    unownedLand.map(plot => {
+                        const canAfford = cash >= plot.basePrice;
+                        return (
+                            <div key={plot.id} className="flex justify-between items-center p-3 border rounded-lg bg-card shadow-sm">
+                                <div>
+                                    <h4 className="font-semibold">{plot.name} ({plot.size} tiles)</h4>
+                                    <p className="text-sm text-muted-foreground">Cost: ${plot.basePrice.toLocaleString()}</p>
+                                </div>
+                                <Button 
+                                    onClick={() => onBuyLand(plot)}
+                                    disabled={!canAfford}
+                                    className="h-8"
+                                >
+                                    <DollarSign className="w-4 h-4 mr-1" />
+                                    Buy Land
+                                </Button>
+                            </div>
+                        );
+                    })
+                )}
             </TabsContent>
 
             {/* Sell Tab Container */}

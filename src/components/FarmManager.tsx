@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import FarmPlots from './FarmPlots';
 import FarmShop from './FarmShop';
 import AnimalPen from './AnimalPen';
-import FarmConstruction from './FarmConstruction';
 import PurchaseModal from './PurchaseModal';
 import AdminPanel from './AdminPanel';
 import { useFarmGame, PurchaseDetails } from '@/hooks/use-farm-game';
@@ -186,6 +185,10 @@ const FarmManager: React.FC = () => {
             inventory={gameState.inventory}
             fertilizerInventory={gameState.fertilizerInventory} // Pass fertilizer inventory
             ownedAnimals={gameState.ownedAnimals}
+            availableLand={availableLand} // Pass construction props
+            isGreenhouseOwned={!!gameState.greenhousePlot} // Pass construction props
+            onBuyLand={handleBuyLand} // Pass construction props
+            onBuyGreenhouse={handleBuyGreenhouse} // Pass construction props
             selectedCropId={selectedCropId}
             selectedFertilizerId={selectedFertilizerId}
             onSelectCrop={handleSelectCrop} // Use new handler
@@ -193,14 +196,6 @@ const FarmManager: React.FC = () => {
             onOpenPurchaseModal={handleOpenPurchaseModal}
             onSellItem={handleSellItem}
             onSellAnimal={handleSellAnimal}
-          />
-          
-          <FarmConstruction
-            cash={gameState.cash}
-            availableLand={availableLand}
-            isGreenhouseOwned={!!gameState.greenhousePlot}
-            onBuyLand={handleBuyLand}
-            onBuyGreenhouse={handleBuyGreenhouse}
           />
         </div>
       </div>
