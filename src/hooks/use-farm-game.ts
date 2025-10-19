@@ -356,7 +356,7 @@ export function useFarmGame() {
         }
 
         // 3. Consume fertilizer and update plot
-        const newFertilizerInventory = { ...prev.fertilizerInventory, [fertilizerId]: prev.fertilizerInventory[fertililzerId] - 1 };
+        const newFertilizerInventory = { ...prev.fertilizerInventory, [fertilizerId]: prev.fertilizerInventory[fertilizerId] - 1 };
         if (newFertilizerInventory[fertilizerId] === 0) delete newFertilizerInventory[fertilizerId];
 
         const updatedPlot = { ...targetPlot, tiles: updatedTiles };
@@ -402,6 +402,7 @@ export function useFarmGame() {
         return prev;
       }
 
+      // Remove the animal entry entirely since we are selling ALL of them (quantity is the total owned)
       const newOwnedAnimals = prev.ownedAnimals.filter(a => a.id !== animalId);
       
       return {
