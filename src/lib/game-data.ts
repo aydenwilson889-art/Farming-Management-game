@@ -1,4 +1,4 @@
-import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet, Beef, Drumstick, Factory, Utensils, ChefHat, Soup, UtensilsCrossed, Warehouse, Waves, Grape, Cherry, Lemon, Coffee, Potato, Onion, Pepper, Mushroom, Flower, TreePine, TreeDeciduous, Clover, Sun, Gem, Diamond, Shield, Leaf } from 'lucide-react';
+import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet, Beef, Drumstick, Factory, Utensils, ChefHat, Soup, UtensilsCrossed, Warehouse, Waves, Grape, Cherry, Coffee, TreeDeciduous, Sun, Gem, Diamond, Shield, Leaf } from 'lucide-react';
 
 // --- Types ---
 
@@ -391,19 +391,19 @@ export const CROPS: Crop[] = [
   { id: 'tomato', name: 'Tomato', icon: Apple, seedCost: 10, growthTime: 10, baseYield: 20, basePrice: 5, optimalSeason: 'Summer' },
   
   // New Crops (20 total)
-  { id: 'potato', name: 'Potato', icon: Potato, seedCost: 4, growthTime: 7, baseYield: 18, basePrice: 3, optimalSeason: 'Spring' },
-  { id: 'onion', name: 'Onion', icon: Onion, seedCost: 6, growthTime: 9, baseYield: 14, basePrice: 5, optimalSeason: 'Autumn' },
-  { id: 'pepper', name: 'Pepper', icon: Pepper, seedCost: 12, growthTime: 12, baseYield: 25, basePrice: 6, optimalSeason: 'Summer' },
-  { id: 'mushroom', name: 'Mushroom', icon: Mushroom, seedCost: 8, growthTime: 5, baseYield: 10, basePrice: 7, optimalSeason: 'Autumn' },
+  { id: 'potato', name: 'Potato', icon: Carrot, seedCost: 4, growthTime: 7, baseYield: 18, basePrice: 3, optimalSeason: 'Spring' }, // Changed to Carrot
+  { id: 'onion', name: 'Onion', icon: Carrot, seedCost: 6, growthTime: 9, baseYield: 14, basePrice: 5, optimalSeason: 'Autumn' }, // Changed to Carrot
+  { id: 'pepper', name: 'Pepper', icon: Apple, seedCost: 12, growthTime: 12, baseYield: 25, basePrice: 6, optimalSeason: 'Summer' }, // Changed to Apple
+  { id: 'mushroom', name: 'Mushroom', icon: Leaf, seedCost: 8, growthTime: 5, baseYield: 10, basePrice: 7, optimalSeason: 'Autumn' }, // Changed to Leaf
   { id: 'sunflower', name: 'Sunflower', icon: Sun, seedCost: 15, growthTime: 15, baseYield: 30, basePrice: 8, optimalSeason: 'Summer' },
-  { id: 'clover', name: 'Clover', icon: Clover, seedCost: 2, growthTime: 4, baseYield: 8, basePrice: 1, optimalSeason: 'Spring' },
+  { id: 'clover', name: 'Clover', icon: Leaf, seedCost: 2, growthTime: 4, baseYield: 8, basePrice: 1, optimalSeason: 'Spring' }, // Changed to Leaf
   { id: 'grape', name: 'Grape', icon: Grape, seedCost: 20, growthTime: 18, baseYield: 40, basePrice: 10, optimalSeason: 'Autumn' },
   { id: 'cherry', name: 'Cherry', icon: Cherry, seedCost: 25, growthTime: 20, baseYield: 50, basePrice: 12, optimalSeason: 'Spring' },
-  { id: 'lemon', name: 'Lemon', icon: Lemon, seedCost: 30, growthTime: 22, baseYield: 60, basePrice: 15, optimalSeason: 'Summer' },
+  { id: 'lemon', name: 'Lemon', icon: Apple, seedCost: 30, growthTime: 22, baseYield: 60, basePrice: 15, optimalSeason: 'Summer' }, // Changed to Apple
   { id: 'coffee', name: 'Coffee Bean', icon: Coffee, seedCost: 40, growthTime: 25, baseYield: 70, basePrice: 20, optimalSeason: 'Summer' },
-  { id: 'pine', name: 'Pine Tree', icon: TreePine, seedCost: 50, growthTime: 30, baseYield: 80, basePrice: 25, optimalSeason: 'Winter' },
+  { id: 'pine', name: 'Pine Tree', icon: TreeDeciduous, seedCost: 50, growthTime: 30, baseYield: 80, basePrice: 25, optimalSeason: 'Winter' }, // Changed to TreeDeciduous
   { id: 'oak', name: 'Oak Tree', icon: TreeDeciduous, seedCost: 60, growthTime: 35, baseYield: 90, basePrice: 30, optimalSeason: 'Autumn' },
-  { id: 'flower', name: 'Flower', icon: Flower, seedCost: 7, growthTime: 6, baseYield: 15, basePrice: 5, optimalSeason: 'Spring' },
+  { id: 'flower', name: 'Flower', icon: Leaf, seedCost: 7, growthTime: 6, baseYield: 15, basePrice: 5, optimalSeason: 'Spring' }, // Changed to Leaf
   { id: 'cabbage', name: 'Cabbage', icon: Leaf, seedCost: 9, growthTime: 10, baseYield: 20, basePrice: 4, optimalSeason: 'Spring' },
   { id: 'cucumber', name: 'Cucumber', icon: Leaf, seedCost: 11, growthTime: 11, baseYield: 22, basePrice: 6, optimalSeason: 'Summer' },
   { id: 'pumpkin', name: 'Pumpkin', icon: Carrot, seedCost: 18, growthTime: 16, baseYield: 35, basePrice: 9, optimalSeason: 'Autumn' },
