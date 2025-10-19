@@ -16,9 +16,9 @@ interface FarmShopProps {
   fertilizerInventory: Record<string, number>;
   ownedAnimals: Animal[];
   selectedCropId: string | null;
-  selectedFertilizerId: string | null; // New prop
+  selectedFertilizerId: string | null;
   onSelectCrop: (cropId: string | null) => void;
-  onSelectFertilizer: (fertId: string | null) => void; // New prop
+  onSelectFertilizer: (fertId: string | null) => void;
   onOpenPurchaseModal: (item: Crop | Animal | Fertilizer) => void; 
   onSellItem: (itemId: string, quantity: number) => void;
   onSellAnimal: (animalId: string, quantity: number) => void; 
@@ -71,7 +71,7 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, fertilizerInventor
               <TabsTrigger value="buy-seeds">Seeds</TabsTrigger>
               <TabsTrigger value="buy-animals">Animals</TabsTrigger>
               <TabsTrigger value="buy-fertilizer">Fertilizer</TabsTrigger>
-              <TabsTrigger value="sell-harvest">Sell ({inventoryItems.length})</TabsTrigger>
+              <TabsTrigger value="sell-harvest">Sell</TabsTrigger>
             </TabsList>
             
             {/* Buy Seeds Tab */}
@@ -226,39 +226,87 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, fertilizerInventor
               })}
             </TabsContent>
 
-            {/* Sell Harvest Tab */}
-            <TabsContent value="sell-harvest" className="mt-4 space-y-3">
-              {inventoryItems.length === 0 ? (
-                <p className="text-center text-muted-foreground py-4">Inventory is empty. Harvest crops or collect products!</p>
-              ) : (
-                <>
-                  <div className="flex justify-between items-center p-2 border-b mb-3">
-                    <span className="font-semibold">Total Estimated Value:</span>
-                    <Badge variant="secondary" className="text-lg">
-                      <DollarSign className="w-4 h-4 mr-1" />
-                      {totalInventoryValue.toLocaleString()}
-                    </Badge>
-                  </div>
-                  
-                  {inventoryItems.map((item) => {
-                    const value = item.quantity * item.basePrice;
+            {/* Sell Tab Container */}
+            <TabsContent value="sell-harvest" className="mt-4 space-y-6">
+              
+              {/* Sub-section: Sell Harvest/Products */}
+              <div className="space-y-3 border p-3 rounded-lg">
+                <h4 className="text-lg font-semibold flex items-center">
+                  <Package className="w-5 h-5 mr-2" /> Harvest & Products
+                </h4>
+                {inventoryItems.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-2">Inventory is empty. Harvest crops or collect products!</p>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center p-2 border-b mb-3">
+                      <span className="font-semibold">Total Estimated Value:</span>
+                      <Badge variant="secondary" className="text-lg">
+                        <DollarSign className="w-4 h-4 mr-1" />
+                        {totalInventoryValue.toLocaleString()}
+                      </Badge>
+                    </div>
+                    
+                    {inventoryItems.map((item) => {
+                      const value = item.quantity * item.basePrice;
+
+                      return (
+                        <div 
+                          key={item.id} 
+                          className="flex items-center justify-between p-3 border rounded-lg bg-card"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <Package className="w-6 h-6 text-blue-500" />
+                            <div>
+                              <h4 className="font-semibold">{item.name} ({item.quantity.toLocaleString()} units)</h4>
+                              <p className="text-xs text-muted-foreground">
+                                Sell Price: ${item.basePrice} per unit. Total: ${value.toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            onClick={() => onSellItem(item.id, item.quantity)}
+                            variant="destructive"
+                            className="h-8 flex items-center space-x-1"
+                          >
+                            <ArrowRight className="w-4 h-4" />
+                            <span>Sell All</span>
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+
+              {/* Sub-section: Sell Animals */}
+              <div className="space-y-3 border p-3 rounded-lg">
+                <h4 className="text-lg font-semibold flex items-center">
+                  <PawPrint className="w-5 h-5 mr-2" /> Livestock
+                </h4>
+                {ownedAnimals.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-2">You don't own any animals to sell.</p>
+                ) : (
+                  ownedAnimals.map((animal) => {
+                    // Use a reduced selling price, e.g., 75% of purchase cost
+                    const sellPricePerUnit = Math.floor(animal.purchaseCost * 0.75);
+                    const totalSellValue = animal.quantity * sellPricePerUnit;
 
                     return (
                       <div 
-                        key={item.id} 
+                        key={animal.id} 
                         className="flex items-center justify-between p-3 border rounded-lg bg-card"
                       >
                         <div className="flex items-center space-x-3">
-                          <Package className="w-6 h-6 text-blue-500" />
+                          <animal.icon className="w-6 h-6 text-amber-700" />
                           <div>
-                            <h4 className="font-semibold">{item.name} ({item.quantity.toLocaleString()} units)</h4>
+                            <h4 className="font-semibold">{animal.name} ({animal.quantity} units)</h4>
                             <p className="text-xs text-muted-foreground">
-                              Sell Price: ${item.basePrice} per unit. Total: ${value.toLocaleString()}
+                              Sell Price: ${sellPricePerUnit} per unit. Total: ${totalSellValue.toLocaleString()}
                             </p>
                           </div>
                         </div>
                         <Button
-                          onClick={() => onSellItem(item.id, item.quantity)}
+                          onClick={() => onSellAnimal(animal.id, animal.quantity)}
                           variant="destructive"
                           className="h-8 flex items-center space-x-1"
                         >
@@ -267,47 +315,9 @@ const FarmShop: React.FC<FarmShopProps> = ({ cash, inventory, fertilizerInventor
                         </Button>
                       </div>
                     );
-                  })}
-                </>
-              )}
-            </TabsContent>
-
-            {/* Sell Animals Tab */}
-            <TabsContent value="sell-animals" className="mt-4 space-y-3">
-              {ownedAnimals.length === 0 ? (
-                <p className="text-center text-muted-foreground py-4">You don't own any animals to sell.</p>
-              ) : (
-                ownedAnimals.map((animal) => {
-                  // Use a reduced selling price, e.g., 75% of purchase cost
-                  const sellPricePerUnit = Math.floor(animal.purchaseCost * 0.75);
-                  const totalSellValue = animal.quantity * sellPricePerUnit;
-
-                  return (
-                    <div 
-                      key={animal.id} 
-                      className="flex items-center justify-between p-3 border rounded-lg bg-card"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <animal.icon className="w-6 h-6 text-amber-700" />
-                        <div>
-                          <h4 className="font-semibold">{animal.name} ({animal.quantity} units)</h4>
-                          <p className="text-xs text-muted-foreground">
-                            Sell Price: ${sellPricePerUnit} per unit. Total: ${totalSellValue.toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        onClick={() => onSellAnimal(animal.id, animal.quantity)}
-                        variant="destructive"
-                        className="h-8 flex items-center space-x-1"
-                      >
-                        <ArrowRight className="w-4 h-4" />
-                        <span>Sell All</span>
-                      </Button>
-                    </div>
-                  );
-                })
-              )}
+                  })
+                )}
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>
