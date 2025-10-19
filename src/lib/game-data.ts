@@ -1,4 +1,4 @@
-import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet, Beef, Drumstick, Factory, Utensils, ChefHat, Soup, Steak } from 'lucide-react';
+import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet, Beef, Drumstick, Factory, Utensils, ChefHat, Soup, UtensilsCrossed } from 'lucide-react';
 
 // --- Types ---
 
@@ -156,7 +156,7 @@ export const RESTAURANTS: Restaurant[] = [
     {
         id: 'steakhouse',
         name: 'Prime Steakhouse',
-        icon: Steak,
+        icon: UtensilsCrossed,
         description: 'Demands high-quality beef, pays a premium for it.',
         demand: {
             'beef_meat': 1.3, // 30% bonus
@@ -283,7 +283,6 @@ export const ANIMALS: Animal[] = [
     weight: 0, minWeight: 0, maxWeight: 0, optimalWeight: 0, feedCost: 0, isFed: false,
   },
 ];
-
 
 export const CROPS: Crop[] = [
   {
