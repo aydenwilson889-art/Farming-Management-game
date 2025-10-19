@@ -2,13 +2,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { 
   INITIAL_GAME_STATE, LandPlot, Crop, getCropById, INITIAL_LAND_PLOTS, Animal, ANIMALS, getAnimalProductById, 
   SEASONS, DAYS_PER_SEASON, TAX_RATE, INITIAL_GREENHOUSE_PLOT, GREENHOUSE_COST, Season, Fertilizer, getFertilizerById,
-  calculateMeatPriceMultiplier, BUTCHER_STAND_COST, MEAT_PRODUCT_IDS, getRestaurantById, Restaurant, GameState
+  calculateMeatPriceMultiplier, BUTCHER_STAND_COST, MEAT_PRODUCT_IDS, getRestaurantById, Restaurant, GameState,
+  Silo, SILO_COST, WATER_PUMP_COST, BASE_INVENTORY_CAPACITY, SILO_CAPACITY_INCREASE
 } from '@/lib/game-data';
 import { RNG_EVENTS, RNGEvent } from '@/lib/rng-events';
 import { showSuccess, showError } from '@/utils/toast';
 
 const BULK_DISCOUNT = 0.05; // 5% discount
 const SOIL_BONUS_MULTIPLIER = 1.15; // 15% growth bonus for optimal soil
+const WATER_PUMP_GROWTH_BONUS = 0.10; // 10% daily growth bonus from water pump
 
 export interface PurchaseDetails {
     type: 'seed' | 'animal' | 'fertilizer';
@@ -93,6 +95,16 @@ const handleRandomEvent = (state: GameState): { newState: GameState, eventOccurr
     return { newState: state, eventOccurred: false };
 };
 
+/**
+ * Calculates the current maximum capacity for the regular inventory (crops/products).
+ */
+const calculateInventoryCapacity = (state: GameState): number => {
+    let capacity = BASE_INVENTORY_CAPACITY;
+    if (state.hasSilo) {
+        capacity += SILO_CAPACITY_INCREASE;
+    }
+    return capacity;
+};
 
 export function useFarmGame() {
   const [gameState, setGameState] = useState(INITIAL_GAME_STATE);
@@ -156,6 +168,7 @@ export function useFarmGame() {
         
         // 3. Advance Crop Growth Stages
         const isWinter = newSeason === 'Winter';
+        const hasWaterPump = currentState.hasWaterPump;
 
         const processPlotGrowth = (plot: LandPlot): LandPlot => {
             const isGreenhouse = plot.id === 'greenhouse';
@@ -189,6 +202,11 @@ export function useFarmGame() {
                             // Soil Type Bonus (Only applies outside the greenhouse)
                             if (!isGreenhouse && plot.soilType.includes(crop.id)) {
                                 growthMultiplier *= SOIL_BONUS_MULTIPLIER; // 15% bonus
+                            }
+                            
+                            // Water Pump Bonus (Applies everywhere, including greenhouse)
+                            if (hasWaterPump) {
+                                growthMultiplier += WATER_PUMP_GROWTH_BONUS; // Add 10%
                             }
                             
                             let growthIncrement = (1 / crop.growthTime) * 100 * growthMultiplier;
@@ -245,8 +263,16 @@ export function useFarmGame() {
             const product = animal.product;
             const yieldAmount = animal.quantity;
             
-            newInventory[product.id] = (newInventory[product.id] || 0) + yieldAmount;
-            showSuccess(`Collected ${yieldAmount} unit(s) of ${product.name} from the ${animal.name}s!`);
+            // Check inventory capacity before adding
+            const currentTotalInventory = Object.values(newInventory).reduce((sum, q) => sum + q, 0);
+            const maxCapacity = calculateInventoryCapacity(currentState);
+            
+            if (currentTotalInventory + yieldAmount <= maxCapacity) {
+                newInventory[product.id] = (newInventory[product.id] || 0) + yieldAmount;
+                showSuccess(`Collected ${yieldAmount} unit(s) of ${product.name} from the ${animal.name}s!`);
+            } else {
+                showError(`Inventory full! Failed to collect ${product.name}. Sell items to make space.`);
+            }
             
             return { ...animal, daysUntilProduction: animal.productionTime };
           }
@@ -313,6 +339,17 @@ export function useFarmGame() {
         showError("Insufficient funds for this purchase.");
         return false;
     }
+    
+    // Check inventory capacity for seeds/fertilizer
+    if (details.type === 'seed' || details.type === 'fertilizer') {
+        const currentTotalInventory = Object.values(gameState.inventory).reduce((sum, q) => sum + q, 0);
+        const maxCapacity = calculateInventoryCapacity(gameState);
+        
+        if (currentTotalInventory + details.quantity > maxCapacity) {
+            showError(`Inventory capacity exceeded! Max: ${maxCapacity.toLocaleString()}. Sell items or buy a Silo.`);
+            return false;
+        }
+    }
 
     setGameState(prev => {
         let newCash = prev.cash - details.totalCost;
@@ -360,7 +397,7 @@ export function useFarmGame() {
         };
     });
     return true;
-  }, [gameState.cash]);
+  }, [gameState.cash, gameState.inventory]);
 
 
   // --- Fertilizer Handler (Omitted for brevity, assuming existing logic is fine) ---
@@ -489,7 +526,7 @@ export function useFarmGame() {
         }
 
         // 3. Consume fertilizer and update plot
-        const newFertilizerInventory = { ...prev.fertilizerInventory, [fertilizerId]: prev.fertilizerInventory[fertililzerId] - 1 };
+        const newFertilizerInventory = { ...prev.fertilizerInventory, [fertilizerId]: prev.fertilizerInventory[fertilizerId] - 1 };
         if (newFertilizerInventory[fertilizerId] === 0) delete newFertilizerInventory[fertilizerId];
 
         const updatedPlot = { ...targetPlot, tiles: updatedTiles };
@@ -711,6 +748,9 @@ export function useFarmGame() {
       let newInventory = { ...prev.inventory };
       let newOwnedLand = [...prev.ownedLand];
       let newGreenhousePlot = prev.greenhousePlot;
+      
+      const maxCapacity = calculateInventoryCapacity(prev);
+      const currentTotalInventory = Object.values(prev.inventory).reduce((sum, q) => sum + q, 0);
 
 
       if (action === 'plant' && selectedCropId) {
@@ -746,6 +786,11 @@ export function useFarmGame() {
         if (!crop) return prev;
         
         const yieldAmount = crop.baseYield; 
+        
+        if (currentTotalInventory + yieldAmount > maxCapacity) {
+            showError(`Inventory full! Max: ${maxCapacity.toLocaleString()}. Cannot harvest ${crop.name}. Sell items first.`);
+            return prev;
+        }
         
         tile.cropId = null;
         tile.growthStage = 0;
@@ -823,6 +868,32 @@ export function useFarmGame() {
         showError("Insufficient funds to purchase the Personal Butcher Stand.");
     }
   }, [gameState.cash]);
+  
+  const handleBuySilo = useCallback(() => {
+    if (gameState.cash >= SILO_COST) {
+        setGameState(prev => ({
+            ...prev,
+            cash: prev.cash - SILO_COST,
+            hasSilo: true,
+        }));
+        showSuccess(`Silo purchased! Inventory capacity increased by ${SILO_CAPACITY_INCREASE.toLocaleString()} units.`);
+    } else {
+        showError("Insufficient funds to purchase the Silo.");
+    }
+  }, [gameState.cash]);
+  
+  const handleBuyWaterPump = useCallback(() => {
+    if (gameState.cash >= WATER_PUMP_COST) {
+        setGameState(prev => ({
+            ...prev,
+            cash: prev.cash - WATER_PUMP_COST,
+            hasWaterPump: true,
+        }));
+        showSuccess("Water Pump installed! All crops now receive a daily 10% growth boost.");
+    } else {
+        showError("Insufficient funds to purchase the Water Pump.");
+    }
+  }, [gameState.cash]);
 
 
   return {
@@ -833,14 +904,17 @@ export function useFarmGame() {
     handleButcherAnimal,
     handleFeedAnimal,
     handleSellItem,
-    handleSellMeatToRestaurant, // Export new handler
+    handleSellMeatToRestaurant,
     handleTileAction,
     handleBuyLand,
     handleBuyGreenhouse,
     handleBuyButcherStand,
+    handleBuySilo, // Export new handler
+    handleBuyWaterPump, // Export new handler
     handleApplyFertilizer,
     adjustCash,
     adjustDay,
     adjustSeason,
+    calculateInventoryCapacity: () => calculateInventoryCapacity(gameState),
   };
 }

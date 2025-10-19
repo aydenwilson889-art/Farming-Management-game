@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, getAnimalProductById, FERTILIZERS, Fertilizer, LandPlot, GREENHOUSE_COST, BUTCHER_STAND_COST, MEAT_PRODUCT_IDS } from '@/lib/game-data';
-import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf, Info, Droplet, LandPlot as LandPlotIcon, CheckCircle, Factory, Store, Zap } from 'lucide-react';
+import { CROPS, Crop, ANIMALS, Animal, ANIMAL_PRODUCTS, FERTILIZERS, Fertilizer, LandPlot, GREENHOUSE_COST, BUTCHER_STAND_COST, MEAT_PRODUCT_IDS, SILO_COST, WATER_PUMP_COST, SILO_CAPACITY_INCREASE } from '@/lib/game-data';
+import { DollarSign, ShoppingCart, Package, ArrowRight, PawPrint, Clock, Leaf, Info, Droplet, LandPlot as LandPlotIcon, CheckCircle, Factory, Store, Zap, Warehouse, Waves } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import ItemDetailsDialog from './ItemDetailsDialog';
@@ -19,6 +19,8 @@ interface FarmShopProps {
   availableLand: LandPlot[]; 
   isGreenhouseOwned: boolean; 
   hasButcherStand: boolean;
+  hasSilo: boolean; // New prop
+  hasWaterPump: boolean; // New prop
   selectedCropId: string | null;
   selectedFertilizerId: string | null;
   onSelectCrop: (cropId: string | null) => void;
@@ -29,6 +31,8 @@ interface FarmShopProps {
   onBuyLand: (plot: LandPlot) => void; 
   onBuyGreenhouse: () => void; 
   onBuyButcherStand: () => void;
+  onBuySilo: () => void; // New handler
+  onBuyWaterPump: () => void; // New handler
 }
 
 const FarmShop: React.FC<FarmShopProps> = ({ 
@@ -40,6 +44,8 @@ const FarmShop: React.FC<FarmShopProps> = ({
   availableLand,
   isGreenhouseOwned,
   hasButcherStand,
+  hasSilo, // Destructure new prop
+  hasWaterPump, // Destructure new prop
   selectedCropId, 
   selectedFertilizerId, 
   onSelectCrop, 
@@ -50,6 +56,8 @@ const FarmShop: React.FC<FarmShopProps> = ({
   onBuyLand,
   onBuyGreenhouse,
   onBuyButcherStand,
+  onBuySilo, // Use new handler
+  onBuyWaterPump, // Use new handler
 }) => {
   
   const [detailsItem, setDetailsItem] = useState<Crop | Animal | Fertilizer | null>(null);
@@ -91,6 +99,8 @@ const FarmShop: React.FC<FarmShopProps> = ({
   const unownedLand = availableLand.filter(p => !p.isOwned);
   const canAffordGreenhouse = cash >= GREENHOUSE_COST;
   const canAffordButcherStand = cash >= BUTCHER_STAND_COST;
+  const canAffordSilo = cash >= SILO_COST;
+  const canAffordWaterPump = cash >= WATER_PUMP_COST;
 
   const handleOpenDetails = (item: Crop | Animal | Fertilizer) => {
     setDetailsItem(item);
@@ -289,6 +299,68 @@ const FarmShop: React.FC<FarmShopProps> = ({
                     <Factory className="w-5 h-5 mr-2 text-green-600" /> Infrastructure
                 </h3>
                 
+                {/* Silo Section */}
+                <div className="p-3 border rounded-lg bg-card shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <h4 className="font-semibold flex items-center">
+                                <Warehouse className="w-4 h-4 mr-1 text-amber-700" /> Silo
+                            </h4>
+                            <p className="text-xs text-muted-foreground">Increases crop/product storage capacity by {SILO_CAPACITY_INCREASE.toLocaleString()} units.</p>
+                        </div>
+                        
+                        {hasSilo ? (
+                            <div className="flex items-center space-x-2 text-green-600 font-semibold">
+                                <CheckCircle className="w-5 h-5" />
+                                <span>Owned</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center space-x-2">
+                                <p className="text-sm font-medium mr-2">Cost: ${SILO_COST.toLocaleString()}</p>
+                                <Button
+                                    onClick={onBuySilo}
+                                    disabled={!canAffordSilo}
+                                    className="h-8 flex items-center space-x-1"
+                                >
+                                    <DollarSign className="w-4 h-4" />
+                                    <span>{canAffordSilo ? 'Purchase' : 'Cannot Afford'}</span>
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+                
+                {/* Water Pump Section */}
+                <div className="p-3 border rounded-lg bg-card shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <h4 className="font-semibold flex items-center">
+                                <Waves className="w-4 h-4 mr-1 text-blue-500" /> Automated Water Pump
+                            </h4>
+                            <p className="text-xs text-muted-foreground">Provides a daily 10% growth boost to all crops.</p>
+                        </div>
+                        
+                        {hasWaterPump ? (
+                            <div className="flex items-center space-x-2 text-green-600 font-semibold">
+                                <CheckCircle className="w-5 h-5" />
+                                <span>Owned</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center space-x-2">
+                                <p className="text-sm font-medium mr-2">Cost: ${WATER_PUMP_COST.toLocaleString()}</p>
+                                <Button
+                                    onClick={onBuyWaterPump}
+                                    disabled={!canAffordWaterPump}
+                                    className="h-8 flex items-center space-x-1"
+                                >
+                                    <DollarSign className="w-4 h-4" />
+                                    <span>{canAffordWaterPump ? 'Purchase' : 'Cannot Afford'}</span>
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+                
                 {/* Personal Butcher Stand Section */}
                 <div className="p-3 border rounded-lg bg-card shadow-sm">
                     <div className="flex items-center justify-between">
@@ -305,7 +377,7 @@ const FarmShop: React.FC<FarmShopProps> = ({
                                 <span>Owned</span>
                             </div>
                         ) : (
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-space-x-2">
                                 <p className="text-sm font-medium mr-2">Cost: ${BUTCHER_STAND_COST.toLocaleString()}</p>
                                 <Button
                                     onClick={onBuyButcherStand}

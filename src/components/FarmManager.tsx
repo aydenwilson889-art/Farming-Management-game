@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { LandPlot, Crop, Animal, SEASONS, getCropById, Fertilizer, getFertilizerById } from '@/lib/game-data';
-import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud, ChevronDown, Droplet, Egg, Drumstick, Store } from 'lucide-react';
+import { LandPlot, Crop, Animal, SEASONS, getCropById, Fertilizer, getFertilizerById, BASE_INVENTORY_CAPACITY, SILO_CAPACITY_INCREASE } from '@/lib/game-data';
+import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud, ChevronDown, Droplet, Egg, Drumstick, Store, Warehouse, Waves } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,10 +32,13 @@ const FarmManager: React.FC = () => {
     handleBuyLand,
     handleBuyGreenhouse,
     handleBuyButcherStand,
+    handleBuySilo, // New handler
+    handleBuyWaterPump, // New handler
     handleApplyFertilizer,
     adjustCash,
     adjustDay,
     adjustSeason,
+    calculateInventoryCapacity, // New utility function
   } = useFarmGame();
 
   const [selectedCropId, setSelectedCropId] = useState<string | null>(null);
@@ -109,6 +112,9 @@ const FarmManager: React.FC = () => {
   
   const meatAnimals = gameState.ownedAnimals.filter(a => a.isMeatAnimal);
   const producerAnimals = gameState.ownedAnimals.filter(a => !a.isMeatAnimal);
+  
+  const currentInventoryCount = Object.values(gameState.inventory).reduce((sum, q) => sum + q, 0);
+  const maxInventoryCapacity = calculateInventoryCapacity();
 
   const SeasonIcon = getSeasonIcon(gameState.currentSeason);
 
@@ -136,12 +142,8 @@ const FarmManager: React.FC = () => {
               <span className="text-xl font-semibold">Day: {gameState.day}</span>
             </div>
             <div className="flex items-center space-x-2">
-              <LandPlotIcon className="w-5 h-5" />
-              <span className="text-xl font-semibold">Plots: {gameState.ownedLand.length + (gameState.greenhousePlot ? 1 : 0)}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <PawPrint className="w-5 h-5" />
-              <span className="text-xl font-semibold">Animals: {gameState.ownedAnimals.reduce((sum, a) => sum + a.quantity, 0)}</span>
+              <Warehouse className="w-5 h-5" />
+              <span className="text-xl font-semibold">Storage: {currentInventoryCount.toLocaleString()}/{maxInventoryCapacity.toLocaleString()}</span>
             </div>
           </div>
         </CardHeader>
@@ -242,9 +244,13 @@ const FarmManager: React.FC = () => {
         availableLand={availableLand} 
         isGreenhouseOwned={!!gameState.greenhousePlot} 
         hasButcherStand={gameState.hasButcherStand}
+        hasSilo={gameState.hasSilo} // Pass new prop
+        hasWaterPump={gameState.hasWaterPump} // Pass new prop
         onBuyLand={handleBuyLand} 
         onBuyGreenhouse={handleBuyGreenhouse} 
         onBuyButcherStand={handleBuyButcherStand}
+        onBuySilo={handleBuySilo} // Pass new handler
+        onBuyWaterPump={handleBuyWaterPump} // Pass new handler
         selectedCropId={selectedCropId}
         selectedFertilizerId={selectedFertilizerId}
         onSelectCrop={handleSelectCrop} 

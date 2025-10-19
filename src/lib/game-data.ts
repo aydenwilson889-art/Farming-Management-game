@@ -1,4 +1,4 @@
-import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet, Beef, Drumstick, Factory, Utensils, ChefHat, Soup, UtensilsCrossed } from 'lucide-react';
+import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet, Beef, Drumstick, Factory, Utensils, ChefHat, Soup, UtensilsCrossed, Warehouse, Waves } from 'lucide-react';
 
 // --- Types ---
 
@@ -89,6 +89,8 @@ export interface GameState {
   ownedLand: LandPlot[];
   ownedAnimals: Animal[];
   hasButcherStand: boolean; // New property for Personal Butcher Stand
+  hasSilo: boolean; // New property for Silo
+  hasWaterPump: boolean; // New property for Water Pump
 }
 
 // --- Constants ---
@@ -100,6 +102,10 @@ export const TAX_DAY_INTERVAL = DAYS_PER_SEASON; // Tax collected at the end of 
 export const GREENHOUSE_COST = 5000;
 export const GREENHOUSE_SIZE = 6; // 3x2 grid
 export const BUTCHER_STAND_COST = 10000; // Cost for the Personal Butcher Stand
+export const SILO_COST = 7500; // Cost for the Silo
+export const WATER_PUMP_COST = 12000; // Cost for the Water Pump
+export const BASE_INVENTORY_CAPACITY = 500; // Base capacity for crops/products
+export const SILO_CAPACITY_INCREASE = 5000; // Silo adds 5000 capacity
 
 export const FERTILIZERS: Fertilizer[] = [
   {
@@ -558,6 +564,8 @@ export const INITIAL_GAME_STATE: GameState = {
   ownedLand: INITIAL_LAND_PLOTS.filter(p => p.isOwned),
   ownedAnimals: [],
   hasButcherStand: false, // Initialize new property
+  hasSilo: false, // Initialize new property
+  hasWaterPump: false, // Initialize new property
 };
 
 // --- Utility Functions ---
