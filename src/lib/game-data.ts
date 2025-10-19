@@ -1,4 +1,4 @@
-import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet, Beef, Drumstick, Factory, Utensils, ChefHat, Soup, UtensilsCrossed, Warehouse, Waves, Grape, Cherry, Lemon, Coffee, Corn, Potato, Onion, Pepper, Mushroom, Flower, TreePine, TreeDeciduous, Clover, Sun, Gem, Diamond, Shield, Sword } from 'lucide-react';
+import { LucideIcon, Wheat, DollarSign, LandPlot as LandPlotIcon, Tractor, Carrot, Apple, PiggyBank, Egg, Milk, Feather, Fish, Rabbit, Bird, Droplet, Beef, Drumstick, Factory, Utensils, ChefHat, Soup, UtensilsCrossed, Warehouse, Waves, Grape, Cherry, Lemon, Coffee, Potato, Onion, Pepper, Mushroom, Flower, TreePine, TreeDeciduous, Clover, Sun, Gem, Diamond, Shield, Leaf } from 'lucide-react';
 
 // --- Types ---
 
@@ -386,7 +386,7 @@ export const ANIMALS: Animal[] = [
 
 export const CROPS: Crop[] = [
   { id: 'wheat', name: 'Wheat', icon: Wheat, seedCost: 1, growthTime: 5, baseYield: 10, basePrice: 2, optimalSeason: 'Spring' },
-  { id: 'corn', name: 'Corn', icon: Corn, seedCost: 3, growthTime: 8, baseYield: 15, basePrice: 3, optimalSeason: 'Summer' },
+  { id: 'corn', name: 'Corn', icon: Wheat, seedCost: 3, growthTime: 8, baseYield: 15, basePrice: 3, optimalSeason: 'Summer' }, // Using Wheat icon
   { id: 'carrot', name: 'Carrot', icon: Carrot, seedCost: 5, growthTime: 6, baseYield: 12, basePrice: 4, optimalSeason: 'Autumn' },
   { id: 'tomato', name: 'Tomato', icon: Apple, seedCost: 10, growthTime: 10, baseYield: 20, basePrice: 5, optimalSeason: 'Summer' },
   
