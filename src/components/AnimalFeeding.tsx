@@ -108,7 +108,7 @@ const AnimalFeeding: React.FC<AnimalFeedingProps> = ({ meatAnimals, cash, onFeed
                     className="h-8 text-xs mt-2 sm:mt-0"
                   >
                     <ArrowRight className="w-3 h-3 mr-1" />
-                    {isReadyToButcher ? 'Butcher All' : `${animal.daysUntilProduction - 1} Days Left`}
+                    {isReadyToButcher ? 'Butcher' : `${animal.daysUntilProduction - 1} Days Left`}
                   </Button>
                 </div>
               </div>
