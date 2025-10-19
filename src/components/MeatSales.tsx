@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { DollarSign, Utensils, Package, ArrowRight, ChefHat } from 'lucide-react';
+import { DollarSign, Package, ChefHat } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { ANIMAL_PRODUCTS, getAnimalProductById, RESTAURANTS, Restaurant, MEAT_PRODUCT_IDS } from '@/lib/game-data';
+import { getAnimalProductById, RESTAURANTS, MEAT_PRODUCT_IDS } from '@/lib/game-data';
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
 
@@ -51,17 +50,8 @@ const MeatSales: React.FC<MeatSalesProps> = ({ freezerInventory, onSellMeatToRes
   };
 
   return (
-    <Card className="w-full shadow-lg">
-      <CardHeader>
-        <CardTitle className="text-2xl flex items-center text-red-600 dark:text-red-400">
-          <Package className="w-6 h-6 mr-2" />
-          Freezer & Restaurant Sales
-        </CardTitle>
-        <CardDescription>
-          Meat processed via your Personal Butcher Stand is stored here. Sell to restaurants for better prices.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <div className="space-y-6">
+        <p className="text-sm text-muted-foreground">Meat processed via your Personal Butcher Stand is stored here. Sell to restaurants for better prices.</p>
         
         {/* Restaurant Selection */}
         <div className="space-y-3 border p-3 rounded-lg bg-muted/50">
@@ -148,8 +138,7 @@ const MeatSales: React.FC<MeatSalesProps> = ({ freezerInventory, onSellMeatToRes
                 })
             )}
         </div>
-      </CardContent>
-    </Card>
+    </div>
   );
 };
 

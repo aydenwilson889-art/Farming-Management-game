@@ -2,15 +2,16 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { LandPlot, Crop, Animal, SEASONS, getCropById, Fertilizer, getFertilizerById } from '@/lib/game-data';
-import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud, ChevronDown, Droplet } from 'lucide-react';
-import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { DollarSign, Clock, LandPlot as LandPlotIcon, Tractor, PawPrint, Sun, Snowflake, Leaf, Cloud, ChevronDown, Droplet, Egg, Drumstick, Store } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import FarmPlots from './FarmPlots';
 import FarmShop from './FarmShop';
 import AnimalPen from './AnimalPen';
 import AnimalFeeding from './AnimalFeeding';
-import MeatSales from './MeatSales'; // New import
+import MeatSales from './MeatSales';
 import PurchaseModal from './PurchaseModal';
 import AdminPanel from './AdminPanel';
 import { useFarmGame, PurchaseDetails } from '@/hooks/use-farm-game';
@@ -26,7 +27,7 @@ const FarmManager: React.FC = () => {
     handleButcherAnimal,
     handleFeedAnimal,
     handleSellItem,
-    handleSellMeatToRestaurant, // New handler
+    handleSellMeatToRestaurant,
     handleTileAction,
     handleBuyLand,
     handleBuyGreenhouse,
@@ -182,28 +183,57 @@ const FarmManager: React.FC = () => {
             onApplyFertilizer={handleApplyFertilizer}
           />
           
-          <h2 className="text-2xl font-bold border-b pb-2">Livestock Management</h2>
-          
-          {/* Meat Animal Feeding/Butchering */}
-          {meatAnimals.length > 0 && (
-            <AnimalFeeding 
-                meatAnimals={meatAnimals}
-                cash={gameState.cash}
-                onFeedAnimal={handleFeedAnimal}
-                onButcherAnimal={handleButcherAnimal}
-            />
-          )}
-          
-          {/* Product Animal Production */}
-          <AnimalPen ownedAnimals={producerAnimals} />
-          
-          {/* Meat Sales (Freezer/Restaurant) */}
-          {gameState.hasButcherStand && (
-            <MeatSales
-                freezerInventory={gameState.freezerInventory}
-                onSellMeatToRestaurant={handleSellMeatToRestaurant}
-            />
-          )}
+          {/* Livestock Management Tabs */}
+          <Card className="w-full shadow-lg">
+            <CardHeader>
+                <CardTitle className="text-2xl flex items-center">
+                    <PawPrint className="w-6 h-6 mr-2" />
+                    Livestock Management
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+                <Tabs defaultValue="production">
+                    <TabsList className="grid w-full grid-cols-3 h-auto">
+                        <TabsTrigger value="production" className="flex items-center space-x-1">
+                            <Egg className="w-4 h-4" />
+                            <span>Product Production</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="meat" className="flex items-center space-x-1">
+                            <Drumstick className="w-4 h-4" />
+                            <span>Meat Management</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="sales" className="flex items-center space-x-1" disabled={!gameState.hasButcherStand}>
+                            <Store className="w-4 h-4" />
+                            <span>Meat Sales</span>
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="production" className="p-4 pt-4">
+                        <AnimalPen ownedAnimals={producerAnimals} />
+                    </TabsContent>
+
+                    <TabsContent value="meat" className="p-4 pt-4">
+                        <AnimalFeeding 
+                            meatAnimals={meatAnimals}
+                            cash={gameState.cash}
+                            onFeedAnimal={handleFeedAnimal}
+                            onButcherAnimal={handleButcherAnimal}
+                        />
+                    </TabsContent>
+
+                    <TabsContent value="sales" className="p-4 pt-4">
+                        {gameState.hasButcherStand ? (
+                            <MeatSales
+                                freezerInventory={gameState.freezerInventory}
+                                onSellMeatToRestaurant={handleSellMeatToRestaurant}
+                            />
+                        ) : (
+                            <p className="text-center text-muted-foreground py-4">Purchase the Personal Butcher Stand in the Marketplace (Construction tab) to unlock meat sales.</p>
+                        )}
+                    </TabsContent>
+                </Tabs>
+            </CardContent>
+          </Card>
         </div>
         
         {/* Column 2: Shop and Construction */}
@@ -212,7 +242,7 @@ const FarmManager: React.FC = () => {
           <FarmShop 
             cash={gameState.cash}
             inventory={gameState.inventory}
-            freezerInventory={gameState.freezerInventory} // Pass freezer inventory to filter sell tab
+            freezerInventory={gameState.freezerInventory}
             fertilizerInventory={gameState.fertilizerInventory} 
             ownedAnimals={gameState.ownedAnimals}
             availableLand={availableLand} 
